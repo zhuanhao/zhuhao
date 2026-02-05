@@ -1,6 +1,8 @@
 {
-  "name": "ANHAO",
-  "start_url": "./",  
+  "name": "AI OS",
+  "short_name": "AI OS",
+  "description": "我的专属 AI 智能手机模拟器，在手机主屏幕启动可全屏无网址栏。",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
