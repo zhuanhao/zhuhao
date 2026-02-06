@@ -61,15 +61,30 @@ function tryUnlock() {
     }
 }
 
+let isUnlocking = false;
+
 function performUnlock() {
+    if (isUnlocking) return;
+    isUnlocking = true;
+
     lockScreen.style.transition = 'transform 0.3s ease';
     lockScreen.style.transform = 'translateY(-100%)';
     
     // 确保动画完成后切换状态
     setTimeout(() => {
-        lockScreen.classList.remove('active');
-        lockScreen.style.transform = ''; // 重置位置，但因为移除了 active，所以不可见
+        // 先显示主屏幕
         document.getElementById('home-screen').classList.add('active');
+        
+        // 禁用动画并重置锁屏状态
+        lockScreen.style.transition = 'none';
+        lockScreen.classList.remove('active');
+        
+        // 强制重绘，确保 transition: none 生效
+        void lockScreen.offsetWidth;
+        
+        lockScreen.style.transform = '';
+        
+        isUnlocking = false;
     }, 300);
 }
 
