@@ -87,11 +87,16 @@ body {
     height: 100%;
     display: none;
     flex-direction: column;
-    transition: opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
 }
 
 .screen-page.active {
     display: flex;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 10;
 }
 
 /* 锁屏界面 */
@@ -109,7 +114,7 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 800;
+    z-index: 1000; /* 确保最高层级 */
     text-align: center;
 }
 

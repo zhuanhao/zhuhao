@@ -67,22 +67,26 @@ function performUnlock() {
     if (isUnlocking) return;
     isUnlocking = true;
 
-    lockScreen.style.transition = 'transform 0.3s ease';
+    // 启用过渡动画
+    lockScreen.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
     lockScreen.style.transform = 'translateY(-100%)';
+    lockScreen.style.opacity = '0';
     
     // 确保动画完成后切换状态
     setTimeout(() => {
-        // 先显示主屏幕
+        // 显示主屏幕
         document.getElementById('home-screen').classList.add('active');
         
-        // 禁用动画并重置锁屏状态
+        // 彻底隐藏锁屏
         lockScreen.style.transition = 'none';
         lockScreen.classList.remove('active');
         
-        // 强制重绘，确保 transition: none 生效
-        void lockScreen.offsetWidth;
-        
+        // 强制重置样式
         lockScreen.style.transform = '';
+        lockScreen.style.opacity = '';
+        
+        // 强制重绘
+        void lockScreen.offsetWidth;
         
         isUnlocking = false;
     }, 300);
