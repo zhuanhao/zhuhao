@@ -34,6 +34,31 @@
                 </div>
             </div>
 
+            <!-- 密码输入界面 -->
+            <div id="passcode-screen" class="screen-page">
+                <div class="passcode-content">
+                    <div class="passcode-title">输入密码</div>
+                    <div class="passcode-dots">
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                    </div>
+                    <div class="num-pad">
+                        <div class="num-btn" onclick="inputPasscode(1)">1</div>
+                        <div class="num-btn" onclick="inputPasscode(2)">2</div>
+                        <div class="num-btn" onclick="inputPasscode(3)">3</div>
+                        <div class="num-btn" onclick="inputPasscode(4)">4</div>
+                        <div class="num-btn" onclick="inputPasscode(5)">5</div>
+                        <div class="num-btn" onclick="inputPasscode(6)">6</div>
+                        <div class="num-btn" onclick="inputPasscode(7)">7</div>
+                        <div class="num-btn" onclick="inputPasscode(8)">8</div>
+                        <div class="num-btn" onclick="inputPasscode(9)">9</div>
+                        <div class="num-btn transparent"></div>
+                        <div class="num-btn" onclick="inputPasscode(0)">0</div>
+                        <div class="num-btn" onclick="deletePasscode()">⌫</div>
+                    </div>
+                    <div class="cancel-btn" onclick="cancelPasscode()">取消</div>
+                </div>
+            </div>
+
             <!-- 主屏幕 -->
             <div id="home-screen" class="screen-page">
                 <div class="app-grid">
@@ -208,9 +233,23 @@
                         </div>
                         <span>外观设置</span>
                     </div>
-                    <div class="app-content center-content">
-                        <p>外观配置项在这里</p>
+                    <div class="app-content scrollable">
+                        <div class="settings-group-title">壁纸</div>
+                        <div class="settings-list">
+                            <div class="settings-item" onclick="triggerWallpaperUpload()">
+                                <span>更换锁屏壁纸</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </div>
+                        <div class="settings-group-title">安全</div>
+                        <div class="settings-list">
+                            <div class="settings-item" onclick="setupPasscode()">
+                                <span id="passcode-setting-text">设置锁屏密码</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </div>
                     </div>
+                    <input type="file" id="wallpaper-upload" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(this)">
                 </div>
             </div>
 
