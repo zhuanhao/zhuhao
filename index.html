@@ -1,759 +1,205 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-
-<link rel="manifest" href="./manifest.json"> 
-<link rel="apple-touch-icon" href="./icon-192.png"> 
-
-<title>AI OS</title>
-<style>
-  /* --- 基础重置 --- */
-  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background-color: #000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100dvh;
-    font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-    overflow: hidden;
-  }
-
-  /* --- 手机容器 --- */
-  .phone-frame {
-    width: 100%; height: 100%; max-width: 420px;
-    background: #000; position: relative; overflow: hidden;
-  }
-
-  /* --- 屏幕壁纸 --- */
-  .screen {
-    width: 100%; height: 100%;
-    background: url('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?q=80&w=1000&auto=format&fit=crop') center/cover;
-    position: relative; display: flex; flex-direction: column;
-    transition: filter 0.3s;
-  }
-
-  /* --- 顶部状态栏 --- */
-  .status-bar {
-    position: absolute; top: 0; left: 0; right: 0;
-    height: 48px; display: flex; justify-content: space-between; align-items: flex-end;
-    padding: calc(10px + env(safe-area-inset-top)) 24px 10px;
-    color: white; font-size: 15px; font-weight: 600; z-index: 100;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-  }
-  .carrier-name { font-size: 14px; font-weight: 500; }
-  
-  .battery-container { display: flex; align-items: center; gap: 6px; }
-  .battery-icon {
-    width: 26px; height: 12px; border: 2px solid rgba(255,255,255,0.8); border-radius: 3px;
-    position: relative; padding: 1px;
-  }
-  .battery-icon::after {
-    content: ''; position: absolute; right: -4px; top: 2px;
-    width: 2px; height: 4px; background: rgba(255,255,255,0.8); border-radius: 0 2px 2px 0;
-  }
-  .battery-level { height: 100%; background: white; border-radius: 1px; width: 60%; transition: width 0.5s; }
-  .charging-bolt { display: none; font-size: 10px; }
-  .charging .charging-bolt { display: block; }
-  .charging .battery-level { background: #34c759; }
-
-  /* --- 灵动岛 --- */
-  .dynamic-island {
-    position: absolute; top: calc(11px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
-    width: 110px; height: 32px; background: #000; border-radius: 20px; z-index: 101;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    display: flex; justify-content: center; align-items: center;
-    color: white; font-size: 14px; overflow: hidden;
-  }
-  .dynamic-island.expanded {
-    width: 90%; max-width: 360px; height: 56px; border-radius: 30px;
-    justify-content: flex-start; padding: 0 15px; gap: 10px;
-  }
-  .dynamic-island img.album-art { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; display: none; }
-  .dynamic-island.expanded img.album-art { display: block; }
-  .dynamic-island .text-content {
-    flex-grow: 1; display: none; flex-direction: column; text-align: left;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .dynamic-island.expanded .text-content { display: flex; }
-  .dynamic-island .title { font-weight: 600; font-size: 15px; }
-  .dynamic-island .artist { font-size: 12px; opacity: 0.7; }
-  .dynamic-island .controls { display: none; gap: 15px; font-size: 20px; }
-  .dynamic-island.expanded .controls { display: flex; }
-
-  /* --- 页面切换逻辑 --- */
-  .page {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: #fff; display: none; flex-direction: column;
-    transform-origin: center bottom;
-    /* 默认 padding，个别 App 会覆盖 */
-    padding-top: calc(48px + env(safe-area-inset-top));
-    padding-bottom: calc(5px + 8px + env(safe-area-inset-bottom));
-  }
-  #lock-screen {
-    background: transparent; align-items: center; color: white;
-    padding-top: calc(120px + env(safe-area-inset-top));
-    padding-bottom: calc(50px + env(safe-area-inset-bottom));
-    z-index: 50; text-align: center;
-  }
-  #home-screen { 
-    background: transparent; 
-    padding-top: calc(70px + env(safe-area-inset-top)); 
-    padding-bottom: calc(20px + env(safe-area-inset-bottom)); 
-    z-index: 40; 
-  }
-
-  .page.active { display: flex; animation: appOpen 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-  @keyframes appOpen { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-
-  /* --- 1. 锁屏 --- */
-  .clock-large { font-size: 86px; font-weight: 200; letter-spacing: -2px; line-height: 1; }
-  .date-text { font-size: 20px; margin-top: 10px; font-weight: 500; opacity: 0.9; }
-  .unlock-hint { margin-top: auto; opacity: 0.6; font-size: 14px; animation: pulse 2s infinite; }
-  @keyframes pulse { 0% {opacity:0.3} 50% {opacity:0.8} 100% {opacity:0.3} }
-
-  /* --- 2. 桌面 --- */
-  .app-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; row-gap: 30px; }
-  .app-item { display: flex; flex-direction: column; align-items: center; gap: 8px; transition: 0.1s;}
-  .app-item:active { opacity: 0.6; transform: scale(0.95); }
-  
-  .app-icon { 
-    width: 60px; height: 60px; border-radius: 16px; 
-    display: flex; justify-content: center; align-items: center; 
-    font-size: 28px; color: white; 
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-  }
-  .app-icon.camera { background: linear-gradient(135deg, #ff5722, #ff9800); }
-  .app-icon.phone { background: linear-gradient(135deg, #4CAF50, #8BC34A); }
-  .app-icon.browser { background: linear-gradient(135deg, #2196F3, #03A9F4); }
-  .app-icon.music { background: linear-gradient(135deg, #9C27B0, #E040FB); }
-  .app-icon.mail { background: linear-gradient(135deg, #F44336, #FF7043); }
-
-  .app-name { color: white; font-size: 12px; font-weight: 500; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-  
-  .dock {
-    margin-top: auto; background: rgba(255,255,255,0.25); backdrop-filter: blur(20px);
-    border-radius: 32px; padding: 18px; display: flex; justify-content: space-around; 
-    margin-bottom: env(safe-area-inset-bottom);
-    width: 100%; box-sizing: border-box;
-  }
-  .dock .app-item { margin: 0; flex-basis: 25%; }
-  .dock .app-item .app-icon { width: 50px; height: 50px; font-size: 24px; }
-  .dock .app-item .app-name { margin-top: 5px; }
-
-  /* --- 通用 App 内部样式 --- */
-  .app-header { 
-    /* 头部固定在顶部 */
-    flex-shrink: 0;
-    height: 96px; 
-    padding: calc(50px + env(safe-area-inset-top)) 20px 10px; 
-    background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(0,0,0,0.1); 
-    font-weight: 700; font-size: 22px; 
-    display: flex; align-items: center; justify-content: space-between;
-    z-index: 10;
-  }
-  /* 这里的 app-content 主要用于非聊天类 App */
-  .app-content { flex: 1; overflow-y: auto; padding: 20px; background: #f2f2f7; }
-
-  /* --- 聊天 App 专用布局 (修复遮挡问题) --- */
-  #app-chat {
-    display: flex;
-    flex-direction: column;
-    padding: 0; /* 清除默认 padding，由内部元素控制 */
-  }
-
-  /* 聊天内容容器：占据 Header 和 TabBar 之间的空间 */
-  .chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* 防止溢出 */
-    position: relative;
-    background: #f2f2f7;
-  }
-
-  /* 每一个 Tab 页面的样式 */
-  .chat-tab-view {
-    display: none; /* 默认隐藏 */
-    flex-direction: column;
-    height: 100%; /* 占满 chat-container */
-    width: 100%;
-  }
-  .chat-tab-view.active {
-    display: flex;
-  }
-
-  /* 消息 Tab 特有样式：聊天记录 + 输入框 */
-  .chat-messages-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  /* 输入框区域：现在是 Flex 布局的一部分，不会被遮挡 */
-  .input-area { 
-    flex-shrink: 0; /* 不会被压缩 */
-    padding: 12px 15px;
-    padding-bottom: 12px; /* 底部留白，因为下面是 TabBar */
-    background: #fff; 
-    display: flex; gap:10px; 
-    border-top: 1px solid #eee; 
-  }
-  .input-area input { flex: 1; height: 40px; padding: 0 15px; border: 1px solid #e0e0e0; border-radius: 20px; font-size: 16px; outline: none; background: #f5f5f5; }
-  .input-area input:focus { background: #fff; border-color: #007aff; }
-
-  /* 聊天气泡 */
-  .chat-bubble { padding: 12px 18px; border-radius: 20px; max-width: 85%; margin-bottom: 12px; font-size: 16px; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-  .chat-bubble.ai { background: #fff; align-self: flex-start; border-bottom-left-radius: 4px; }
-  .chat-bubble.me { background: #007aff; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-
-  /* 聊天底部导航栏 */
-  .chat-tab-bar {
-    flex-shrink: 0;
-    height: calc(50px + env(safe-area-inset-bottom)); /* 适配底部安全区域 */
-    background: #f8f8f8;
-    border-top: 1px solid #e0e0e0;
-    display: flex;
-    justify-content: space-around;
-    align-items: flex-start;
-    padding-top: 8px;
-    z-index: 20;
-  }
-  .chat-tab-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 10px;
-    color: #8e8e93;
-    width: 25%;
-  }
-  .chat-tab-item.active { color: #007aff; }
-  .chat-tab-item .icon { font-size: 22px; margin-bottom: 2px; }
-
-  /* --- 设置 App 样式 --- */
-  .settings-list {
-    background: #fff;
-  }
-  .settings-section {
-    background: white;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    overflow: hidden;
-  }
-  /* 设置 App 内的二级页面 */
-  .settings-subpage {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: #f2f2f7; z-index: 20;
-    display: none; flex-direction: column;
-    /* padding 由内部 header 和 content 控制 */
-  }
-  .settings-subpage.active { display: flex; animation: slideIn 0.3s ease-out; }
-  @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-
-  .settings-item {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 16px;
-    color: #333;
-    background: #fff;
-  }
-  .settings-item:last-child { border-bottom: none; }
-  .settings-item:active { background: #f2f2f7; }
-
-  /* 表单控件 */
-  .settings-item input[type="text"], .settings-item input[type="password"], .settings-item select {
-    flex-shrink: 0; width: 60%; padding: 8px 10px; border: 1px solid #ccc;
-    border-radius: 8px; font-size: 16px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
-  }
-  .settings-button {
-    background: #007aff; color: white; padding: 12px 20px; border: none;
-    border-radius: 10px; font-size: 17px; font-weight: 600; width: 100%;
-    text-align: center; margin-top: 20px;
-  }
-
-  /* 开关样式 */
-  .toggle-switch {
-    width: 50px; height: 30px; background: #e9e9ea; border-radius: 15px; position: relative;
-    transition: background-color 0.3s;
-  }
-  .toggle-switch.on { background-color: #34c759; }
-  .toggle-switch .slider {
-    width: 26px; height: 26px; background: white; border-radius: 50%; position: absolute;
-    top: 2px; left: 2px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    transition: left 0.3s;
-  }
-  .toggle-switch.on .slider { left: 22px; }
-
-  /* 底部黑条 */
-  .home-bar {
-    position: absolute; left: 50%; transform: translateX(-50%);
-    width: 130px; height: 5px; background: #fff; border-radius: 3px; z-index: 999; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    bottom: calc(8px + env(safe-area-inset-bottom)); 
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Phone</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
-<div class="phone-frame">
-  <div class="screen">
-    <!-- 顶部状态栏 -->
-    <div class="status-bar">
-      <span class="carrier-name">AI_Link</span>
-      <span id="clock-small">--:--</span>
-      <div class="battery-container" id="battery-box">
-        <span class="charging-bolt">⚡</span>
-        <span id="batt-text" style="font-size:12px; margin-right:4px;"></span>
-        <div class="battery-icon">
-          <div class="battery-level" id="batt-level"></div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- 灵动岛 -->
-    <div class="dynamic-island" id="dynamic-island-display" onclick="toggleDynamicIsland()">
-      <img src="https://via.placeholder.com/40x40/007aff/FFFFFF?text=🎵" alt="Album Art" class="album-art" id="album-art">
-      <div class="text-content">
-        <div class="title" id="song-title">歌曲名称</div>
-        <div class="artist" id="song-artist">艺术家</div>
-      </div>
-      <div class="controls">
-        <span onclick="event.stopPropagation(); console.log('Previous Track')">⏮</span>
-        <span onclick="event.stopPropagation(); togglePlayPause()" id="play-pause-btn">⏯</span>
-        <span onclick="event.stopPropagation(); console.log('Next Track')">⏭</span>
-      </div>
-    </div>
-
-    <!-- 1. 锁屏 -->
-    <div id="lock-screen" class="page active" onclick="unlock()">
-      <div>
-        <div class="clock-large" id="clock-large">12:00</div>
-        <div class="date-text" id="date-text">10月24日 星期二</div>
-      </div>
-      <div class="unlock-hint">向上滑动解锁</div>
-    </div>
-
-    <!-- 2. 桌面 -->
-    <div id="home-screen" class="page">
-      <div class="app-grid">
-        <div class="app-item" onclick="openApp('app-chat')">
-          <div class="app-icon" style="background: linear-gradient(135deg, #30cfd0, #330867);">💬</div>
-          <span class="app-name">聊天</span>
-        </div>
-        <div class="app-item" onclick="openApp('app-lore')">
-          <div class="app-icon" style="background: linear-gradient(135deg, #d299c2, #fef9d7);">📖</div>
-          <span class="app-name">世界书</span>
-        </div>
-        <div class="app-item" onclick="openApp('app-settings')">
-          <div class="app-icon" style="background: linear-gradient(135deg, #a1c4fd, #c2e9fb);">⚙️</div>
-          <span class="app-name">设置</span>
-        </div>
-        <div class="app-item">
-          <div class="app-icon camera">📷</div>
-          <span class="app-name">相机</span>
-        </div>
-      </div>
-
-      <div class="dock">
-        <div class="app-item"><div class="app-icon phone">📞</div><span class="app-name">电话</span></div>
-        <div class="app-item"><div class="app-icon browser">🌐</div><span class="app-name">浏览器</span></div>
-        <div class="app-item"><div class="app-icon music">🎵</div><span class="app-name">音乐</span></div>
-        <div class="app-item"><div class="app-icon mail">✉️</div><span class="app-name">邮件</span></div>
-      </div>
-    </div>
-
-    <!-- 3. App: 聊天 (重构布局) -->
-    <div id="app-chat" class="page">
-      <!-- 聊天 App 头部 -->
-      <div class="app-header">
-        <span id="chat-header-title">聊天</span>
-        <!-- 全局退出键：在聊天 App 里，点击关闭返回桌面 -->
-        <span onclick="goHome()" style="font-size:14px; color:#007aff; font-weight:400; cursor:pointer;">关闭</span>
-      </div>
-      
-      <!-- 聊天内容容器 (Tab 页面) -->
-      <div class="chat-container">
-        
-        <!-- Tab 1: 消息 (Flex 布局修复) -->
-        <div id="chat-tab-messages" class="chat-tab-view active">
-            <!-- 消息列表 (自适应高度，可滚动) -->
-            <div class="chat-messages-area" id="chat-box">
-                <!-- 消息气泡会在这里 -->
-            </div>
-            <!-- 输入框 (固定在底部，位于 TabBar 之上) -->
-            <div class="input-area">
-                <input type="text" id="msg-input" placeholder="发消息..." onkeydown="if(event.key === 'Enter') sendMsg()">
-                <button onclick="sendMsg()" style="border:none; background:none; color:#007aff; font-weight:bold; font-size:16px;">↑</button>
-            </div>
-        </div>
-
-        <!-- Tab 2: 联系人 -->
-        <div id="chat-tab-contacts" class="chat-tab-view" style="padding: 20px; overflow-y: auto;">
-            <div class="settings-section">
-                <div class="settings-item">AI 助手</div>
-                <div class="settings-item">灵犀</div>
-                <div class="settings-item">小爱</div>
-            </div>
-        </div>
-
-        <!-- Tab 3: 动态 -->
-        <div id="chat-tab-moments" class="chat-tab-view" style="padding: 20px; text-align: center; color: #888;">
-            暂无动态，快去分享你的生活吧！
-        </div>
-
-        <!-- Tab 4: 我 -->
-        <div id="chat-tab-me" class="chat-tab-view" style="padding: 20px; overflow-y: auto;">
-            <div class="settings-section">
-                <div class="settings-item">我的昵称 <span style="color:#888">AI 用户</span></div>
-                <div class="settings-item">我的账号 <span style="color:#888">12345678</span></div>
-            </div>
-            <div class="settings-section">
-                <div class="settings-item" onclick="clearChatHistory()">
-                    <span style="color: #ff3b30;">清空聊天记录</span>
-                </div>
-            </div>
-        </div>
-
-      </div>
-
-      <!-- 聊天 App 底部导航栏 -->
-      <div class="chat-tab-bar" id="chat-tab-bar">
-        <div class="chat-tab-item active" data-tab="messages" onclick="switchChatTab('messages')">
-          <span class="icon">💬</span> <span>消息</span>
-        </div>
-        <div class="chat-tab-item" data-tab="contacts" onclick="switchChatTab('contacts')">
-          <span class="icon">👥</span> <span>联系人</span>
-        </div>
-        <div class="chat-tab-item" data-tab="moments" onclick="switchChatTab('moments')">
-          <span class="icon">✨</span> <span>动态</span>
-        </div>
-        <div class="chat-tab-item" data-tab="me" onclick="switchChatTab('me')">
-          <span class="icon">👤</span> <span>我</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 4. App: 世界书 -->
-    <div id="app-lore" class="page">
-      <div class="app-header">世界书 <span onclick="goHome()" style="font-size:14px; color:#007aff; font-weight:400">关闭</span></div>
-      <div class="app-content">
-        <div style="background:white; padding:15px; border-radius:12px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.05)">
-          <strong style="color:#333">角色：灵犀</strong><br>
-          <span style="color:#666; font-size:14px">你的全能 AI 助理，当前运行在 WebOS 2.0 版本。</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 5. App: 设置 (系统设置) -->
-    <div id="app-settings" class="page">
-      <!-- 设置主页 -->
-      <div id="settings-main" style="display: flex; flex-direction: column; height: 100%;">
-          <div class="app-header">
-            设置 <span onclick="goHome()" style="font-size:14px; color:#007aff; font-weight:400">关闭</span>
-          </div>
-          <div class="app-content" style="background:#f2f2f7; padding: 20px;">
-            <div class="settings-section">
-                <div class="settings-item">
-                  <span>飞行模式</span> 
-                  <div class="toggle-switch" id="airplane-mode-toggle" onclick="toggleSetting('airplane-mode-toggle')">
-                    <div class="slider"></div>
-                  </div>
-                </div>
-                <div class="settings-item">
-                  <span>Wi-Fi</span> 
-                  <div class="toggle-switch on" id="wifi-toggle" onclick="toggleSetting('wifi-toggle')">
-                    <div class="slider"></div>
-                  </div>
-                </div>
-                <div class="settings-item">
-                  <span>蓝牙</span> 
-                  <div class="toggle-switch on" id="bluetooth-toggle" onclick="toggleSetting('bluetooth-toggle')">
-                    <div class="slider"></div>
-                  </div>
+    <div class="phone-container">
+        <div class="notch"></div>
+        <div class="screen">
+            <!-- 状态栏 -->
+            <div class="status-bar">
+                <span class="time">12:00</span>
+                <div class="status-icons">
+                    <i class="fas fa-signal"></i>
+                    <i class="fas fa-wifi"></i>
+                    <i class="fas fa-battery-full"></i>
                 </div>
             </div>
 
-            <!-- AI 配置入口 -->
-            <div class="settings-section">
-                <div class="settings-item" onclick="openSettingsSubpage('settings-ai')">
-                    AI 配置 <span style="color:#888; font-size: 14px;">URL, Key, 模型 ></span>
+            <!-- 锁屏界面 -->
+            <div id="lock-screen" class="screen-page active">
+                <div class="lock-content">
+                    <div class="lock-time">12:00</div>
+                    <div class="lock-date">2月6日 星期五</div>
+                    <div class="swipe-hint">向上滑动解锁</div>
                 </div>
             </div>
 
-            <div class="settings-section">
-                <div class="settings-item">通用 <span style="color:#888">></span></div>
-                <div class="settings-item">壁纸 <span style="color:#888">></span></div>
+            <!-- 主屏幕 -->
+            <div id="home-screen" class="screen-page">
+                <div class="app-grid">
+                    <div class="app-icon" onclick="openApp('chat')">
+                        <div class="icon-bg chat-bg"><i class="fas fa-comment"></i></div>
+                        <span>聊天</span>
+                    </div>
+                    <div class="app-icon" onclick="openApp('settings')">
+                        <div class="icon-bg settings-bg"><i class="fas fa-cog"></i></div>
+                        <span>设置</span>
+                    </div>
+                    <div class="app-icon" onclick="openApp('worldbook')">
+                        <div class="icon-bg worldbook-bg"><i class="fas fa-book"></i></div>
+                        <span>世界书</span>
+                    </div>
+                    <div class="app-icon" onclick="openApp('couple')">
+                        <div class="icon-bg couple-bg"><i class="fas fa-heart"></i></div>
+                        <span>情侣空间</span>
+                    </div>
+                    <div class="app-icon" onclick="openApp('drawing')">
+                        <div class="icon-bg drawing-bg"><i class="fas fa-paint-brush"></i></div>
+                        <span>制图</span>
+                    </div>
+                    <div class="app-icon" onclick="openApp('game')">
+                        <div class="icon-bg game-bg"><i class="fas fa-gamepad"></i></div>
+                        <span>游戏</span>
+                    </div>
+                    <div class="app-icon" onclick="openApp('dating')">
+                        <div class="icon-bg dating-bg"><i class="fas fa-user-friends"></i></div>
+                        <span>约会</span>
+                    </div>
+                </div>
+                <div class="dock">
+                    <div class="app-icon">
+                        <div class="icon-bg phone-bg"><i class="fas fa-phone"></i></div>
+                    </div>
+                    <div class="app-icon">
+                        <div class="icon-bg browser-bg"><i class="fas fa-globe"></i></div>
+                    </div>
+                    <div class="app-icon">
+                        <div class="icon-bg camera-bg"><i class="fas fa-camera"></i></div>
+                    </div>
+                </div>
             </div>
-          </div>
-      </div>
 
-      <!-- 设置子页面：AI 配置 -->
-      <div id="settings-ai" class="settings-subpage">
-          <div class="app-header">
-            <span onclick="closeSettingsSubpage('settings-ai')" style="font-size:14px; color:#007aff; font-weight:400; display: flex; align-items: center;"> < 返回</span>
-            <span>AI 配置</span>
-            <span onclick="goHome()" style="font-size:14px; color:#007aff; font-weight:400">关闭</span>
-          </div>
-          <div class="app-content" style="padding: 20px;">
-            <div class="settings-section">
-                <div class="settings-item">
-                  <span style="width: 80px;">API URL</span>
-                  <input type="text" id="api-url-input" placeholder="http://...">
+            <!-- 聊天 APP -->
+            <div id="app-chat" class="app-window">
+                <div class="app-header">
+                    <span>聊天</span>
                 </div>
-                <div class="settings-item">
-                  <span style="width: 80px;">API Key</span>
-                  <input type="password" id="api-key-input" placeholder="sk-...">
+                <div class="app-content">
+                    <div id="chat-tab-messages" class="chat-tab-content active">
+                        <div class="list-item">
+                            <div class="avatar">A</div>
+                            <div class="list-info">
+                                <div class="list-title">Alice</div>
+                                <div class="list-subtitle">你好呀！</div>
+                            </div>
+                            <div class="list-time">10:20</div>
+                        </div>
+                        <div class="list-item">
+                            <div class="avatar">B</div>
+                            <div class="list-info">
+                                <div class="list-title">Bob</div>
+                                <div class="list-subtitle">今晚有空吗？</div>
+                            </div>
+                            <div class="list-time">昨天</div>
+                        </div>
+                    </div>
+                    <div id="chat-tab-contacts" class="chat-tab-content">
+                        <div class="list-header">联系人</div>
+                        <div class="list-item">
+                            <div class="avatar">A</div>
+                            <div class="list-info"><div class="list-title">Alice</div></div>
+                        </div>
+                        <div class="list-item">
+                            <div class="avatar">B</div>
+                            <div class="list-info"><div class="list-title">Bob</div></div>
+                        </div>
+                    </div>
+                    <div id="chat-tab-moments" class="chat-tab-content">
+                        <div class="moment-card">
+                            <div class="moment-header">
+                                <div class="avatar">A</div>
+                                <div class="moment-user">Alice</div>
+                            </div>
+                            <div class="moment-body">今天天气真好！</div>
+                        </div>
+                    </div>
+                    <div id="chat-tab-me" class="chat-tab-content">
+                        <div class="profile-header">
+                            <div class="avatar-large">Me</div>
+                            <div class="profile-name">我的名字</div>
+                        </div>
+                        <div class="settings-list">
+                            <div class="settings-item">钱包</div>
+                            <div class="settings-item">收藏</div>
+                            <div class="settings-item">相册</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="settings-item">
-                  <span style="width: 80px;">模型</span>
-                  <select id="ai-model-select"></select>
+                <div class="app-footer-nav">
+                    <div class="nav-item active" onclick="switchChatTab('messages')">
+                        <i class="fas fa-comment-alt"></i>
+                        <span>消息</span>
+                    </div>
+                    <div class="nav-item" onclick="switchChatTab('contacts')">
+                        <i class="fas fa-address-book"></i>
+                        <span>联系人</span>
+                    </div>
+                    <div class="nav-item" onclick="switchChatTab('moments')">
+                        <i class="fas fa-star"></i>
+                        <span>动态</span>
+                    </div>
+                    <div class="nav-item" onclick="switchChatTab('me')">
+                        <i class="fas fa-user"></i>
+                        <span>我</span>
+                    </div>
                 </div>
             </div>
-            <button class="settings-button" onclick="saveAiSettings()">保存配置</button>
-            <p style="color: #888; font-size: 12px; margin-top: 10px; text-align: center;">配置将用于“聊天”App 的 AI 回复。</p>
-          </div>
-      </div>
+
+            <!-- 设置 APP -->
+            <div id="app-settings" class="app-window">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeApp()">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>设置</span>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">常规</div>
+                    <div class="settings-list">
+                        <div class="settings-item" onclick="alert('API设置功能开发中')">
+                            <span>API 设置</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item" onclick="alert('外观设置功能开发中')">
+                            <span>外观</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                    <div class="settings-group-title">关于</div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <span>版本</span>
+                            <span class="text-muted">1.0.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 通用 APP 占位 -->
+            <div id="app-placeholder" class="app-window">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeApp()">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span id="placeholder-title">应用</span>
+                </div>
+                <div class="app-content center-content">
+                    <i class="fas fa-tools fa-3x"></i>
+                    <p>功能开发中...</p>
+                </div>
+            </div>
+
+            <!-- 底部 Home 条 -->
+            <div class="home-indicator" onclick="goHome()"></div>
+        </div>
     </div>
 
-    <div class="home-bar" onclick="goHome()"></div>
-  </div>
-</div>
-
-<script>
-  // ====================================================================
-  // 1. 全局系统功能
-  // ====================================================================
-
-  function updateClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('clock-small').innerText = `${h}:${m}`;
-    document.getElementById('clock-large').innerText = `${h}:${m}`;
-    const month = now.getMonth() + 1;
-    const date = now.getDate();
-    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-    document.getElementById('date-text').innerText = `${month}月${date}日 星期${weekDays[now.getDay()]}`;
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  function initBattery() {
-    const battLevelEl = document.getElementById('batt-level');
-    const battTextEl = document.getElementById('batt-text');
-    const battBoxEl = document.getElementById('battery-box');
-    if (navigator.getBattery) {
-      navigator.getBattery().then(battery => {
-        updateBatteryUI(battery);
-        battery.addEventListener('levelchange', () => updateBatteryUI(battery));
-        battery.addEventListener('chargingchange', () => updateBatteryUI(battery));
-      });
-    } else {
-      battLevelEl.style.width = '85%'; battTextEl.innerText = '85%';
-    }
-    function updateBatteryUI(battery) {
-      const level = Math.floor(battery.level * 100);
-      battLevelEl.style.width = `${level}%`;
-      battTextEl.innerText = `${level}%`;
-      if(battery.charging) battBoxEl.classList.add('charging');
-      else battBoxEl.classList.remove('charging');
-    }
-  }
-  initBattery();
-
-  // --- App 切换逻辑 ---
-  let currentApp = 'lock-screen';
-
-  function unlock() {
-    const lock = document.getElementById('lock-screen');
-    lock.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
-    lock.style.transform = 'translateY(-100%)';
-    setTimeout(() => {
-      lock.classList.remove('active');
-      lock.style.transform = '';
-      document.getElementById('home-screen').classList.add('active');
-      currentApp = 'home-screen';
-    }, 400);
-  }
-
-  function openApp(id) {
-    const activePage = document.querySelector('.page.active');
-    if (activePage) activePage.classList.remove('active');
-    document.getElementById(id).classList.add('active');
-    currentApp = id;
-    if (id === 'app-chat') {
-        loadChatHistory();
-        scrollChatToBottom();
-        switchChatTab('messages'); 
-    }
-    if (id === 'app-settings') {
-        // 重置设置页面到主页
-        document.querySelectorAll('.settings-subpage').forEach(p => p.classList.remove('active'));
-    }
-  }
-
-  function goHome() {
-    const activePage = document.querySelector('.page.active');
-    if (activePage && activePage.id !== 'home-screen' && activePage.id !== 'lock-screen') {
-      activePage.style.transition = 'transform 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 0.3s ease-out';
-      activePage.style.transform = 'scale(0.9)';
-      activePage.style.opacity = '0';
-      setTimeout(() => {
-        activePage.classList.remove('active');
-        activePage.style = '';
-      }, 300);
-    }
-    document.getElementById('home-screen').classList.add('active');
-    currentApp = 'home-screen';
-  }
-
-  // --- 灵动岛逻辑 (简化) ---
-  let isPlaying = false;
-  function toggleDynamicIsland() {
-    const di = document.getElementById('dynamic-island-display');
-    if(isPlaying) di.classList.toggle('expanded');
-  }
-  function togglePlayPause() {
-    isPlaying = !isPlaying;
-    document.getElementById('play-pause-btn').innerText = isPlaying ? '⏸' : '⏯';
-    if(isPlaying) document.getElementById('dynamic-island-display').classList.add('expanded');
-  }
-
-  // ====================================================================
-  // 2. 聊天 App 功能
-  // ====================================================================
-
-  let chatHistory = [];
-  const chatBox = document.getElementById('chat-box');
-  
-  // API 配置存储
-  let apiSettings = JSON.parse(localStorage.getItem('chatApiSettings')) || { url: '', key: '', model: '' };
-  const availableModels = [
-    { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
-    { id: 'gpt-4o', name: 'GPT-4o' },
-    { id: 'kimi', name: 'Kimi' }
-  ];
-
-  function loadChatHistory() {
-    const storedHistory = localStorage.getItem('aiChatHistory');
-    chatBox.innerHTML = '';
-    if (storedHistory) {
-      chatHistory = JSON.parse(storedHistory);
-      chatHistory.forEach(msg => {
-        chatBox.innerHTML += `<div class="chat-bubble ${msg.sender}">${msg.text}</div>`;
-      });
-    } else {
-      addMessageToChat('ai', '你好！我是你的 AI 助手。');
-    }
-  }
-
-  function scrollChatToBottom() {
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
-
-  async function sendMsg() {
-    const input = document.getElementById('msg-input');
-    const val = input.value.trim();
-    if(!val) return;
-    
-    addMessageToChat('me', val);
-    input.value = '';
-    scrollChatToBottom();
-
-    setTimeout(() => {
-      let aiText = '';
-      if (apiSettings.url && apiSettings.key) {
-        aiText = `(模拟调用 API: ${apiSettings.model}) 收到消息：${val}`;
-      } else {
-        aiText = "请先在“设置”App 中配置 AI API。";
-      }
-      addMessageToChat('ai', aiText);
-      scrollChatToBottom();
-    }, 600);
-  }
-
-  function addMessageToChat(sender, text) {
-    chatBox.innerHTML += `<div class="chat-bubble ${sender}">${text}</div>`;
-    chatHistory.push({ sender, text });
-    localStorage.setItem('aiChatHistory', JSON.stringify(chatHistory));
-  }
-
-  function clearChatHistory() {
-    if (confirm("确定清空聊天记录？")) {
-      chatHistory = [];
-      localStorage.removeItem('aiChatHistory');
-      chatBox.innerHTML = '';
-      alert('已清空');
-    }
-  }
-
-  function switchChatTab(tabName) {
-    document.querySelectorAll('.chat-tab-view').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.chat-tab-item').forEach(i => i.classList.remove('active'));
-    
-    document.getElementById(`chat-tab-${tabName}`).classList.add('active');
-    document.querySelector(`.chat-tab-item[data-tab="${tabName}"]`).classList.add('active');
-    
-    // 更新标题
-    const titles = { messages: '聊天', contacts: '联系人', moments: '动态', me: '我' };
-    document.getElementById('chat-header-title').innerText = titles[tabName];
-    
-    if (tabName === 'messages') scrollChatToBottom();
-  }
-
-  // ====================================================================
-  // 3. 设置 App 功能 (含 AI 配置)
-  // ====================================================================
-
-  function toggleSetting(id) {
-    document.getElementById(id).classList.toggle('on');
-  }
-
-  function openSettingsSubpage(id) {
-    document.getElementById(id).classList.add('active');
-    if (id === 'settings-ai') loadAiSettings();
-  }
-
-  function closeSettingsSubpage(id) {
-    document.getElementById(id).classList.remove('active');
-  }
-
-  function loadAiSettings() {
-    document.getElementById('api-url-input').value = apiSettings.url;
-    document.getElementById('api-key-input').value = apiSettings.key;
-    const select = document.getElementById('ai-model-select');
-    select.innerHTML = '';
-    availableModels.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.id; opt.innerText = m.name;
-      select.appendChild(opt);
-    });
-    select.value = apiSettings.model;
-  }
-
-  function saveAiSettings() {
-    apiSettings.url = document.getElementById('api-url-input').value.trim();
-    apiSettings.key = document.getElementById('api-key-input').value.trim();
-    apiSettings.model = document.getElementById('ai-model-select').value;
-    localStorage.setItem('chatApiSettings', JSON.stringify(apiSettings));
-    alert('AI 配置已保存！');
-    closeSettingsSubpage('settings-ai');
-  }
-
-</script>
+    <script src="script.js"></script>
 </body>
 </html>
