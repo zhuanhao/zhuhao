@@ -172,7 +172,7 @@ body {
 #passcode-screen {
     background-color: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(20px);
-    z-index: 850;
+    z-index: 1100; /* 必须高于锁屏界面(1000) */
     justify-content: center;
     align-items: center;
     color: white;
