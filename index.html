@@ -2,8 +2,12 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Web Phone</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -78,6 +82,9 @@
             <!-- 聊天 APP -->
             <div id="app-chat" class="app-window">
                 <div class="app-header">
+                    <div class="back-btn" onclick="closeApp()">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
                     <span>聊天</span>
                 </div>
                 <div class="app-content">
@@ -162,11 +169,11 @@
                 <div class="app-content scrollable">
                     <div class="settings-group-title">常规</div>
                     <div class="settings-list">
-                        <div class="settings-item" onclick="alert('API设置功能开发中')">
+                        <div class="settings-item" onclick="openSubPage('api-settings')">
                             <span>API 设置</span>
                             <i class="fas fa-chevron-right"></i>
                         </div>
-                        <div class="settings-item" onclick="alert('外观设置功能开发中')">
+                        <div class="settings-item" onclick="openSubPage('appearance-settings')">
                             <span>外观</span>
                             <i class="fas fa-chevron-right"></i>
                         </div>
@@ -177,6 +184,32 @@
                             <span>版本</span>
                             <span class="text-muted">1.0.0</span>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- 子页面：API 设置 -->
+                <div id="subpage-api-settings" class="sub-page">
+                    <div class="app-header">
+                        <div class="back-btn" onclick="closeSubPage('api-settings')">
+                            <i class="fas fa-chevron-left"></i>
+                        </div>
+                        <span>API 设置</span>
+                    </div>
+                    <div class="app-content center-content">
+                        <p>API 配置项在这里</p>
+                    </div>
+                </div>
+
+                <!-- 子页面：外观设置 -->
+                <div id="subpage-appearance-settings" class="sub-page">
+                    <div class="app-header">
+                        <div class="back-btn" onclick="closeSubPage('appearance-settings')">
+                            <i class="fas fa-chevron-left"></i>
+                        </div>
+                        <span>外观设置</span>
+                    </div>
+                    <div class="app-content center-content">
+                        <p>外观配置项在这里</p>
                     </div>
                 </div>
             </div>

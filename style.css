@@ -90,15 +90,27 @@ body {
 #lock-screen {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    justify-content: flex-start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    padding-top: 100px;
+    padding-top: 0;
     z-index: 800;
+    text-align: center;
+}
+
+.lock-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
 }
 
 .lock-time {
     font-size: 80px;
     font-weight: 200;
+    line-height: 1;
 }
 
 .lock-date {
@@ -109,9 +121,31 @@ body {
 .swipe-hint {
     position: absolute;
     bottom: 40px;
+    left: 0;
+    right: 0;
+    text-align: center;
     font-size: 14px;
     opacity: 0.8;
     animation: bounce 2s infinite;
+}
+
+/* 子页面样式 */
+.sub-page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-color);
+    z-index: 600;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sub-page.open {
+    transform: translateX(0);
 }
 
 @keyframes bounce {

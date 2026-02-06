@@ -115,3 +115,19 @@ function switchChatTab(tabName) {
         navItems[tabIndex].classList.add('active');
     }
 }
+
+// 打开子页面
+function openSubPage(pageName) {
+    const subPage = document.getElementById(`subpage-${pageName}`);
+    if (subPage) {
+        subPage.classList.add('open');
+    }
+}
+
+// 关闭子页面
+function closeSubPage(pageName) {
+    const subPage = document.getElementById(`subpage-${pageName}`);
+    if (subPage) {
+        subPage.classList.remove('open');
+    }
+}
