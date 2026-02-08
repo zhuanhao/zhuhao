@@ -574,12 +574,17 @@ function enterChat(userId) {
     
     currentChatUser = contact.name;
     document.getElementById('chat-header-name').textContent = contact.name;
+    
+    // 隐藏聊天列表和底部导航
     document.getElementById('chat-list-view').style.display = 'none';
+    document.querySelector('.app-footer-nav').style.display = 'none';
+    
+    // 隐藏聊天 APP 的默认 Header
+    document.getElementById('chat-app-header').style.display = 'none';
+    
+    // 显示全屏聊天详情页
     const detailView = document.getElementById('chat-detail-view');
     detailView.style.display = 'flex';
-    
-    // 隐藏底部导航
-    document.querySelector('.app-footer-nav').style.display = 'none';
     
     const container = document.getElementById('chat-messages-container');
     container.innerHTML = '';
@@ -588,11 +593,9 @@ function enterChat(userId) {
     if (chatHistory[currentChatUser] && chatHistory[currentChatUser].length > 0) {
         chatHistory[currentChatUser].forEach(msg => {
             // 兼容旧文本消息和新对象消息
-            if (typeof msg.content === 'string') {
-                addMessage(msg.role === 'user' ? 'right' : 'left', msg.content);
-            } else {
-                addMessage(msg.role === 'user' ? 'right' : 'left', msg.content);
-            }
+            const content = typeof msg.content === 'string' ? msg.content : msg.content;
+            const type = msg.type || 'text';
+            addMessage(msg.role === 'user' ? 'right' : 'left', content, type);
         });
     } else {
         addMessage('left', `你好，我是 ${contact.name}。`);
@@ -606,6 +609,7 @@ function exitChat() {
     document.getElementById('chat-detail-view').style.display = 'none';
     document.getElementById('chat-list-view').style.display = 'block';
     document.querySelector('.app-footer-nav').style.display = 'flex';
+    document.getElementById('chat-app-header').style.display = 'flex';
     hideBottomPanels();
     document.getElementById('chat-menu-dropdown').classList.remove('active');
 }
@@ -638,24 +642,32 @@ function sendUserMessage(content, type = 'text') {
     chatHistory[currentChatUser].push(msgObj);
     saveChatHistory();
     
-    // 只有文本消息才触发 AI 回复
-    if (type === 'text') {
-        showTypingIndicator();
-        const apiKey = localStorage.getItem('apiKey');
+    // 移除自动 AI 回复，改为手动触发
+}
+
+function triggerAiReply() {
+    showTypingIndicator();
+    const apiKey = localStorage.getItem('apiKey');
+    
+    if (apiKey) {
+        // 获取最后一条用户消息作为上下文，或者直接让 AI 基于历史回复
+        // 这里我们不传特定 text，而是让 fetchAIResponse 使用历史记录
+        fetchAIResponse(null); 
+    } else {
+        // 本地回复模拟
+        const history = chatHistory[currentChatUser] || [];
+        const lastUserMsg = history.filter(m => m.role === 'user').pop();
+        const text = lastUserMsg ? (typeof lastUserMsg.content === 'string' ? lastUserMsg.content : '[非文本消息]') : '你好';
         
-        if (apiKey) {
-            fetchAIResponse(content);
-        } else {
-            const delay = 1500 + Math.random() * 1000;
-            setTimeout(() => {
-                const replyText = generateLocalReply(content);
-                hideTypingIndicator();
-                addMessage('left', replyText);
-                
-                chatHistory[currentChatUser].push({ role: 'assistant', content: replyText, type: 'text' });
-                saveChatHistory();
-            }, delay);
-        }
+        const delay = 1000 + Math.random() * 1000;
+        setTimeout(() => {
+            const replyText = generateLocalReply(text);
+            hideTypingIndicator();
+            addMessage('left', replyText);
+            
+            chatHistory[currentChatUser].push({ role: 'assistant', content: replyText, type: 'text' });
+            saveChatHistory();
+        }, delay);
     }
 }
 
@@ -879,19 +891,34 @@ function handleEmojiUpload(input) {
 }
 
 function extractUrlsFromText(text) {
-    // 匹配 http/https 开头的 URL
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(https?:\/\/[^\s"']+)/g;
     const matches = text.match(urlRegex);
     
     if (matches && matches.length > 0) {
         let count = 0;
+        let successCount = 0;
+        const total = matches.length;
+        
+        alert(`找到 ${total} 个 URL，正在验证图片有效性...`);
+        
         matches.forEach(url => {
-            // 简单过滤，只保留可能是图片的 URL (可选)
-            // 这里为了兼容性，只要是 URL 都尝试添加
-            saveCustomEmoji(url);
+            // 验证是否为图片
+            const img = new Image();
+            img.onload = function() {
+                saveCustomEmoji(url);
+                successCount++;
+            };
+            img.onerror = function() {
+                console.log('无效图片 URL:', url);
+            };
+            img.src = url;
             count++;
         });
-        alert(`已导入 ${count} 个表情 URL`);
+        
+        // 由于是异步加载，这里只提示开始
+        setTimeout(() => {
+            alert(`导入处理完成。成功加载的图片将显示在表情面板中。`);
+        }, 2000);
     } else {
         alert('未在文档中找到有效的 URL');
     }
@@ -1101,21 +1128,35 @@ async function fetchAIResponse(userText) {
     const apiKey = localStorage.getItem('apiKey');
     const apiUrl = localStorage.getItem('apiUrl') || 'https://api.openai.com/v1/chat/completions';
     const model = localStorage.getItem('apiModel') || 'gpt-3.5-turbo';
-    // 默认历史记录增加到 200 条，满足用户对"Token多一点"的需求
     const historyLimit = parseInt(localStorage.getItem('apiHistoryLimit')) || 200;
-    const maxTokens = parseInt(localStorage.getItem('apiMaxTokens')) || 0; // 0 表示不限制
+    const maxTokens = parseInt(localStorage.getItem('apiMaxTokens')) || 0; 
     
     const contact = contacts.find(c => c.name === currentChatUser) || {};
+    
+    // 获取用户面具设定
+    const userPersona = JSON.parse(localStorage.getItem('userPersona')) || {};
+    const userName = userPersona.name || '用户';
+    const userDesc = userPersona.desc ? `\n\n和你对话的用户设定如下：\n姓名：${userName}\n描述：${userPersona.desc}` : '';
+
     const systemPrompt = `你现在扮演 ${contact.name}。
     你的性格是：${contact.personality || '普通'}。
     你的详细设定如下：
     ${contact.fullDesc || contact.desc || '无特殊设定'}
+    ${userDesc}
     
-    请用符合你人设的语气回复用户。回复要简短自然，像在手机上聊天一样。不要长篇大论。`;
+    请严格遵守你的人设，用符合你性格的语气回复 ${userName}。
+    回复要简短自然，像在手机上聊天一样。不要长篇大论，不要输出动作描写（除非必要），直接输出对话内容。
+    请记住，你就是 ${contact.name}，不是 AI 助手。`;
     
     try {
         const history = chatHistory[currentChatUser] || [];
-        const recentHistory = history.slice(-historyLimit); 
+        // 过滤掉非文本类型的消息内容，避免 API 报错 (除非是多模态模型，这里暂只处理文本)
+        const textHistory = history.map(msg => ({
+            role: msg.role,
+            content: typeof msg.content === 'string' ? msg.content : '[图片/文件]'
+        }));
+        
+        const recentHistory = textHistory.slice(-historyLimit); 
 
         const requestBody = {
             model: model,
@@ -1215,6 +1256,60 @@ async function testApiConnection() {
     }
 }
 
+async function fetchModels() {
+    const apiKey = document.getElementById('api-key-input').value.trim() || localStorage.getItem('apiKey');
+    // 假设 apiUrl 是 .../v1/chat/completions，我们需要 .../v1/models
+    let apiUrl = document.getElementById('api-url-input').value.trim() || localStorage.getItem('apiUrl') || 'https://api.openai.com/v1/chat/completions';
+    
+    // 简单的 URL 替换逻辑
+    if (apiUrl.includes('/chat/completions')) {
+        apiUrl = apiUrl.replace('/chat/completions', '/models');
+    } else {
+        // 如果用户填的是 base url (如 https://api.openai.com/v1)，则追加 /models
+        if (!apiUrl.endsWith('/')) apiUrl += '/';
+        apiUrl += 'models';
+    }
+    
+    if (!apiKey) {
+        alert('请先输入 API Key');
+        return;
+    }
+    
+    alert('正在拉取模型列表...');
+    
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            alert(`拉取失败: ${data.error.message}`);
+        } else if (data.data && Array.isArray(data.data)) {
+            const datalist = document.getElementById('model-list');
+            datalist.innerHTML = ''; // 清空旧选项
+            
+            let count = 0;
+            data.data.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                datalist.appendChild(option);
+                count++;
+            });
+            
+            alert(`成功拉取 ${count} 个模型。请点击模型输入框选择。`);
+        } else {
+            alert('拉取成功，但返回数据格式不符合预期。');
+        }
+    } catch (error) {
+        alert(`网络错误: ${error.message}`);
+    }
+}
+
 function loadApiSettings() {
     const apiKey = localStorage.getItem('apiKey');
     const apiUrl = localStorage.getItem('apiUrl');
@@ -1235,9 +1330,85 @@ function openSubPage(pageName) {
         subPage.classList.add('open');
         if (pageName === 'api-settings') {
             loadApiSettings();
+        } else if (pageName === 'persona-settings') {
+            loadPersonaSettings();
         }
     }
 }
+
+// 面具设置相关逻辑
+function triggerMyAvatarUpload() {
+    document.getElementById('my-avatar-upload-input').click();
+}
+
+function handleMyAvatarPreview(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = document.getElementById('my-persona-avatar-preview');
+            img.src = e.target.result;
+            img.style.display = 'block';
+            document.getElementById('my-persona-avatar-icon').style.display = 'none';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function savePersonaSettings() {
+    const name = document.getElementById('my-persona-name').value.trim();
+    const desc = document.getElementById('my-persona-desc').value.trim();
+    const avatarImg = document.getElementById('my-persona-avatar-preview');
+    const avatar = avatarImg.style.display === 'block' ? avatarImg.src : null;
+    
+    const persona = {
+        name: name,
+        desc: desc,
+        avatar: avatar
+    };
+    
+    localStorage.setItem('userPersona', JSON.stringify(persona));
+    updateMyProfileDisplay();
+    alert('面具设置已保存');
+    closeSubPage('persona-settings');
+}
+
+function loadPersonaSettings() {
+    const persona = JSON.parse(localStorage.getItem('userPersona')) || {};
+    document.getElementById('my-persona-name').value = persona.name || '';
+    document.getElementById('my-persona-desc').value = persona.desc || '';
+    
+    if (persona.avatar) {
+        const img = document.getElementById('my-persona-avatar-preview');
+        img.src = persona.avatar;
+        img.style.display = 'block';
+        document.getElementById('my-persona-avatar-icon').style.display = 'none';
+    }
+}
+
+function updateMyProfileDisplay() {
+    const persona = JSON.parse(localStorage.getItem('userPersona')) || {};
+    const nameEl = document.getElementById('my-name-display');
+    const avatarEl = document.getElementById('my-avatar-display');
+    
+    if (nameEl) nameEl.textContent = persona.name || '我的名字';
+    
+    if (avatarEl) {
+        if (persona.avatar) {
+            avatarEl.innerHTML = `<img src="${persona.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+            avatarEl.style.background = 'transparent';
+            avatarEl.textContent = '';
+        } else {
+            avatarEl.innerHTML = '';
+            avatarEl.textContent = 'Me';
+            avatarEl.style.background = '#e1e1e1';
+        }
+    }
+}
+
+// 初始化时更新显示
+document.addEventListener('DOMContentLoaded', () => {
+    updateMyProfileDisplay();
+});
 
 function closeSubPage(pageName) {
     const subPage = document.getElementById(`subpage-${pageName}`);
