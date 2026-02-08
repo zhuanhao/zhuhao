@@ -10,6 +10,8 @@
     <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 mammoth.js 用于解析 docx -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body>
     <div class="phone-container">
@@ -114,32 +116,110 @@
                 </div>
                 <div class="app-content">
                     <div id="chat-tab-messages" class="chat-tab-content active">
-                        <div class="list-item">
-                            <div class="avatar">A</div>
-                            <div class="list-info">
-                                <div class="list-title">Alice</div>
-                                <div class="list-subtitle">你好呀！</div>
+                        <!-- 聊天列表 -->
+                        <div id="chat-list-view">
+                            <div class="list-item" onclick="enterChat('Alice')">
+                                <div class="avatar">A</div>
+                                <div class="list-info">
+                                    <div class="list-title">Alice</div>
+                                    <div class="list-subtitle">点击进入聊天...</div>
+                                </div>
+                                <div class="list-time">10:20</div>
                             </div>
-                            <div class="list-time">10:20</div>
                         </div>
-                        <div class="list-item">
-                            <div class="avatar">B</div>
-                            <div class="list-info">
-                                <div class="list-title">Bob</div>
-                                <div class="list-subtitle">今晚有空吗？</div>
+                        
+                        <!-- 聊天详情页 (默认隐藏) -->
+                        <div id="chat-detail-view" style="display: none; height: 100%; flex-direction: column; background-color: #f2f2f7;">
+                            <!-- 顶部导航栏 (覆盖默认 header) -->
+                            <div class="chat-header" style="height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; background: #f2f2f7; border-bottom: 1px solid #e5e5ea; flex-shrink: 0;">
+                                <div class="back-btn" onclick="exitChat()" style="position: static; padding: 10px 0;">
+                                    <i class="fas fa-chevron-left"></i> <span id="chat-header-name">Alice</span>
+                                </div>
+                                <div class="header-right" onclick="toggleChatMenu()">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </div>
                             </div>
-                            <div class="list-time">昨天</div>
+                            
+                            <!-- 右上角菜单 -->
+                            <div id="chat-menu-dropdown" class="dropdown-menu">
+                                <div class="menu-item" onclick="startListenTogether()">
+                                    <i class="fas fa-music"></i> 一起听
+                                </div>
+                                <div class="menu-item" onclick="openChatSettings()">
+                                    <i class="fas fa-cog"></i> 设置
+                                </div>
+                            </div>
+
+                            <div id="chat-messages-container" style="flex: 1; overflow-y: auto; padding: 15px;">
+                                <!-- 消息气泡 -->
+                            </div>
+                            
+                            <!-- 底部输入栏 -->
+                            <div class="chat-input-bar">
+                                <div class="input-icon" onclick="toggleEmojiPanel()">
+                                    <i class="far fa-smile"></i>
+                                </div>
+                                <input type="text" id="chat-input" placeholder="" onclick="hideBottomPanels()">
+                                <div class="input-icon" onclick="togglePlusPanel()">
+                                    <i class="fas fa-plus-circle"></i>
+                                </div>
+                                <!-- 发送按钮 (有文字时显示，暂简化为回车发送或一直显示加号) -->
+                            </div>
+                            
+                            <!-- 表情面板 -->
+                            <div id="emoji-panel" class="bottom-panel">
+                                <div class="panel-header">
+                                    <div class="panel-tab active">默认</div>
+                                    <div class="panel-tab">收藏</div>
+                                    <div class="panel-btn" onclick="triggerEmojiUpload()">
+                                        <i class="fas fa-plus"></i> 添加
+                                    </div>
+                                </div>
+                                <div class="emoji-grid" id="default-emojis">
+                                    <!-- JS 填充 -->
+                                </div>
+                                <div class="emoji-grid" id="custom-emojis" style="display: none;">
+                                    <!-- JS 填充 -->
+                                </div>
+                                <input type="file" id="emoji-upload-input" accept="image/*,.txt,.json,.docx,.doc" multiple style="display: none;" onchange="handleEmojiUpload(this)">
+                            </div>
+                            
+                            <!-- 加号面板 -->
+                            <div id="plus-panel" class="bottom-panel">
+                                <div class="plus-grid">
+                                    <div class="plus-item" onclick="sendRedPacket()">
+                                        <div class="plus-icon-bg" style="background: #fa9d3b;"><i class="fas fa-envelope"></i></div>
+                                        <span>红包</span>
+                                    </div>
+                                    <div class="plus-item" onclick="sendTransfer()">
+                                        <div class="plus-icon-bg" style="background: #fa9d3b;"><i class="fas fa-exchange-alt"></i></div>
+                                        <span>转账</span>
+                                    </div>
+                                    <div class="plus-item" onclick="sendTextImage()">
+                                        <div class="plus-icon-bg" style="background: #10aeff;"><i class="fas fa-font"></i></div>
+                                        <span>文字图</span>
+                                    </div>
+                                    <div class="plus-item" onclick="triggerFileUpload()">
+                                        <div class="plus-icon-bg" style="background: #f5c359;"><i class="fas fa-folder"></i></div>
+                                        <span>文件</span>
+                                    </div>
+                                    <div class="plus-item">
+                                        <div class="plus-icon-bg" style="background: #ff5151;"><i class="fas fa-music"></i></div>
+                                        <span>一起听</span>
+                                    </div>
+                                </div>
+                                <input type="file" id="chat-file-upload" accept=".doc,.docx,.txt,.json" style="display: none;" onchange="handleChatFileUpload(this)">
+                            </div>
                         </div>
                     </div>
                     <div id="chat-tab-contacts" class="chat-tab-content">
                         <div class="list-header">联系人</div>
-                        <div class="list-item">
-                            <div class="avatar">A</div>
-                            <div class="list-info"><div class="list-title">Alice</div></div>
+                        <div id="contacts-list-container">
+                            <!-- 联系人列表将通过 JS 动态生成 -->
                         </div>
-                        <div class="list-item">
-                            <div class="avatar">B</div>
-                            <div class="list-info"><div class="list-title">Bob</div></div>
+                        <!-- 添加联系人悬浮按钮 -->
+                        <div class="fab-btn" onclick="showAddContactOptions()">
+                            <i class="fas fa-plus"></i>
                         </div>
                     </div>
                     <div id="chat-tab-moments" class="chat-tab-content">
@@ -223,11 +303,163 @@
                             <i class="fas fa-chevron-left"></i>
                         </div>
                         <span>API 设置</span>
+                        <div class="header-action" onclick="saveApiSettings()">保存</div>
                     </div>
-                    <div class="app-content center-content">
-                        <p>API 配置项在这里</p>
+                    <div class="app-content scrollable">
+                        <div class="settings-group-title">服务商配置</div>
+                        <div class="settings-list">
+                            <div class="settings-item input-item">
+                                <span>API Key</span>
+                                <input type="password" id="api-key-input" placeholder="sk-..." style="width: 65%;">
+                            </div>
+                            <div class="settings-item input-item">
+                                <span>接口地址</span>
+                                <input type="text" id="api-url-input" placeholder="https://api.openai.com/v1/chat/completions" style="width: 65%; font-size: 12px;">
+                            </div>
+                            <div class="settings-item input-item">
+                                <span>模型名称</span>
+                                <input type="text" id="api-model-input" placeholder="gpt-3.5-turbo" value="gpt-3.5-turbo">
+                            </div>
+                        </div>
+
+                        <div class="settings-group-title">高级配置</div>
+                        <div class="settings-list">
+                            <div class="settings-item input-item">
+                                <span>历史消息数</span>
+                                <input type="number" id="api-history-limit" placeholder="50" value="50" style="width: 20%;">
+                            </div>
+                            <div class="settings-item input-item">
+                                <span>最大回复长度</span>
+                                <input type="number" id="api-max-tokens" placeholder="默认" style="width: 20%;">
+                            </div>
+                        </div>
+                        
+                        <div class="settings-group-title">说明</div>
+                        <div style="padding: 0 15px; font-size: 13px; color: #8e8e93; line-height: 1.5;">
+                            支持 OpenAI 格式的接口。<br>
+                            如果是 DeepSeek，地址通常为: https://api.deepseek.com/chat/completions<br>
+                            模型名称: deepseek-chat
+                        </div>
+
+                        <div class="settings-list" style="margin-top: 20px;">
+                            <div class="settings-item" onclick="testApiConnection()">
+                                <span style="color: var(--primary-color);">测试连接</span>
+                                <i class="fas fa-plug"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- 子页面：联系人详情 -->
+                <div id="subpage-contact-detail" class="sub-page">
+                    <div class="app-header">
+                        <div class="back-btn" onclick="closeSubPage('contact-detail')">
+                            <i class="fas fa-chevron-left"></i>
+                        </div>
+                        <span id="contact-detail-name">联系人</span>
+                    </div>
+                    <div class="app-content scrollable">
+                        <div class="center-content" style="padding: 30px 0;">
+                            <div class="avatar-large" id="contact-detail-avatar">A</div>
+                            <h2 id="contact-detail-title" style="margin-top: 10px;">Alice</h2>
+                            <p id="contact-detail-desc" style="color: #888; font-size: 14px; margin-top: 5px; padding: 0 20px; text-align: center;"></p>
+                        </div>
+                        
+                        <div class="settings-group-title">基本信息</div>
+                        <div class="settings-list">
+                            <div class="settings-item">
+                                <span>性别</span>
+                                <span id="contact-detail-gender" class="text-muted">-</span>
+                            </div>
+                            <div class="settings-item">
+                                <span>年龄</span>
+                                <span id="contact-detail-age" class="text-muted">-</span>
+                            </div>
+                            <div class="settings-item">
+                                <span>性格</span>
+                                <span id="contact-detail-personality" class="text-muted">-</span>
+                            </div>
+                        </div>
+
+                        <div class="settings-list" style="margin-top: 20px;">
+                            <div class="settings-item" onclick="enterChatFromDetail()">
+                                <span style="color: var(--primary-color);">发消息</span>
+                                <i class="fas fa-comment"></i>
+                            </div>
+                            <div class="settings-item" onclick="deleteContact()">
+                                <span style="color: #ff3b30;">删除联系人</span>
+                                <i class="fas fa-trash" style="color: #ff3b30;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 子页面：添加联系人 -->
+                <div id="subpage-add-contact" class="sub-page">
+                    <div class="app-header">
+                        <div class="back-btn" onclick="closeSubPage('add-contact')">
+                            <i class="fas fa-chevron-left"></i>
+                        </div>
+                        <span>添加联系人</span>
+                        <div class="header-action" onclick="saveNewContact()">保存</div>
+                    </div>
+                    <div class="app-content scrollable" style="padding-bottom: 40px;">
+                        <div class="form-group center-content" style="margin-top: 20px;">
+                            <div class="avatar-upload" onclick="triggerAvatarUpload()">
+                                <img id="new-contact-avatar-preview" src="" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                                <i class="fas fa-camera" id="new-contact-avatar-icon"></i>
+                            </div>
+                            <div style="margin-top: 10px; color: var(--primary-color); font-size: 14px;">上传头像</div>
+                            <input type="file" id="avatar-upload-input" accept="image/*" style="display: none;" onchange="handleAvatarPreview(this)">
+                        </div>
+
+                        <div class="settings-group-title">基本资料</div>
+                        <div class="settings-list">
+                            <div class="settings-item input-item">
+                                <span>姓名</span>
+                                <input type="text" id="new-contact-name" placeholder="必填">
+                            </div>
+                            <div class="settings-item input-item">
+                                <span>性别</span>
+                                <input type="text" id="new-contact-gender" placeholder="选填">
+                            </div>
+                            <div class="settings-item input-item">
+                                <span>年龄</span>
+                                <input type="text" id="new-contact-age" placeholder="选填">
+                            </div>
+                            <div class="settings-item input-item">
+                                <span>性格</span>
+                                <input type="text" id="new-contact-personality" placeholder="选填">
+                            </div>
+                        </div>
+
+                        <div class="settings-group-title">角色设定 (支持 txt, docx)</div>
+                        <div class="settings-list">
+                            <div class="settings-item" onclick="triggerDocUpload()">
+                                <span id="doc-upload-text">上传设定文档</span>
+                                <i class="fas fa-file-upload"></i>
+                            </div>
+                            <div class="settings-item" id="doc-preview-area" style="display: none; flex-direction: column; align-items: flex-start;">
+                                <div style="font-size: 12px; color: #888; margin-bottom: 5px;">已读取内容预览:</div>
+                                <div id="doc-content-preview" style="font-size: 13px; color: #333; max-height: 100px; overflow: hidden; text-overflow: ellipsis; width: 100%; white-space: nowrap;"></div>
+                            </div>
+                        </div>
+                        <input type="file" id="doc-upload-input" accept=".txt,.doc,.docx" style="display: none;" onchange="handleDocUpload(this)">
+                    </div>
+                </div>
+
+                <!-- 底部操作菜单 (Action Sheet) -->
+                <div id="action-sheet-overlay" class="overlay" onclick="hideActionSheet()"></div>
+                <div id="add-contact-sheet" class="action-sheet">
+                    <div class="action-item" onclick="openAddContactForm()">
+                        <i class="fas fa-user-plus"></i> 自己添加
+                    </div>
+                    <div class="action-item" onclick="triggerImportCard()">
+                        <i class="fas fa-file-import"></i> 导入酒馆卡 (PNG/JSON)
+                    </div>
+                    <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+                </div>
+                <input type="file" id="import-card-input" accept=".png,.json" style="display: none;" onchange="handleImportCard(this)">
 
                 <!-- 子页面：外观设置 -->
                 <div id="subpage-appearance-settings" class="sub-page">
