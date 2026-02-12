@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- 引入 mammoth.js 用于解析 docx -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- 引入 jsmediatags 用于解析音频元数据 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
 </head>
 <body>
     <div class="phone-container">
@@ -112,7 +114,10 @@
                     <div class="back-btn" onclick="closeApp()">
                         <i class="fas fa-chevron-left"></i>
                     </div>
-                    <span>聊天</span>
+                    <span id="chat-app-title">聊天</span>
+                    <div class="header-action" id="chat-app-right-btn" style="display: none;">
+                        <i class="fas fa-plus"></i>
+                    </div>
                 </div>
                 
                 <!-- 聊天详情页 (移到 app-content 外部，覆盖整个 APP) -->
@@ -123,21 +128,15 @@
                             <i class="fas fa-chevron-left"></i> 
                             <span style="margin-left: 5px; font-size: 16px;">消息</span>
                         </div>
-                        <span id="chat-header-name" style="font-weight: 600; font-size: 17px;">Alice</span>
-                        <div class="header-right" onclick="toggleChatMenu()">
+                        <div style="display: flex; align-items: center;">
+                            <span id="chat-header-name" style="font-weight: 600; font-size: 17px;">Alice</span>
+                        </div>
+                        <div class="header-right" onclick="openChatSettingsDetail()">
                             <i class="fas fa-ellipsis-h"></i>
                         </div>
                     </div>
                     
-                    <!-- 右上角菜单 -->
-                    <div id="chat-menu-dropdown" class="dropdown-menu" style="top: 88px;">
-                        <div class="menu-item" onclick="startListenTogether()">
-                            <i class="fas fa-music"></i> 一起听
-                        </div>
-                        <div class="menu-item" onclick="openChatSettings()">
-                            <i class="fas fa-cog"></i> 设置
-                        </div>
-                    </div>
+                    <!-- 右上角菜单已移除，直接进入设置 -->
 
                     <div id="chat-messages-container" style="flex: 1; overflow-y: auto; padding: 15px;">
                         <!-- 消息气泡 -->
@@ -149,34 +148,54 @@
                             <i class="far fa-smile"></i>
                         </div>
                         <div class="input-wrapper" style="flex: 1; position: relative; display: flex; align-items: center;">
-                            <input type="text" id="chat-input" placeholder="" onclick="hideBottomPanels()">
+                            <input type="text" id="chat-input" placeholder="" onclick="hideBottomPanels()" oninput="handleInputState()">
                             <!-- AI 回复按钮 (在输入框内部右侧) -->
                             <div class="ai-reply-btn" onclick="triggerAiReply()" style="position: absolute; right: 10px; color: var(--primary-color); cursor: pointer;">
                                 <i class="fas fa-robot"></i>
                             </div>
                         </div>
-                        <div class="input-icon" onclick="togglePlusPanel()">
+                        <div class="input-icon" id="btn-plus" onclick="togglePlusPanel()">
                             <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <div class="input-btn-send" id="btn-send" onclick="sendMessage()" style="display: none; margin-left: 10px; background: var(--primary-color); color: white; padding: 5px 12px; border-radius: 4px; font-size: 14px;">
+                            发送
                         </div>
                     </div>
                     
-                    <!-- 表情面板 -->
-                    <div id="emoji-panel" class="bottom-panel">
-                        <div class="panel-header">
-                            <div class="panel-tab active">默认</div>
-                            <div class="panel-tab">收藏</div>
-                            <div class="panel-btn" onclick="triggerEmojiUpload()">
-                                <i class="fas fa-plus"></i> 添加
-                            </div>
-                        </div>
-                        <div class="emoji-grid" id="default-emojis">
-                            <!-- JS 填充 -->
-                        </div>
-                        <div class="emoji-grid" id="custom-emojis" style="display: none;">
-                            <!-- JS 填充 -->
-                        </div>
-                        <input type="file" id="emoji-upload-input" accept="image/*,.txt,.json,.docx,.doc" multiple style="display: none;" onchange="handleEmojiUpload(this)">
-                    </div>
+        <!-- 表情面板 -->
+        <div id="emoji-panel" class="bottom-panel">
+            <div class="panel-header">
+                <div class="panel-tab active" onclick="switchEmojiTab('default')">默认</div>
+                <div class="panel-tab" onclick="switchEmojiTab('custom')">收藏</div>
+                <div class="panel-spacer"></div>
+                <div class="panel-btn" onclick="togglePanelExpand()">
+                    <i class="fas fa-expand-alt" id="expand-icon"></i>
+                </div>
+                <div class="panel-btn" onclick="showAddEmojiOptions()">
+                    <i class="fas fa-plus"></i> 添加
+                </div>
+            </div>
+            
+            <!-- 新增：表情工具栏 (搜索和筛选) -->
+            <div id="emoji-toolbar">
+                <div style="position: relative; flex: 1;">
+                    <i class="fas fa-search" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #999; font-size: 12px;"></i>
+                    <input type="text" id="emoji-search" placeholder="搜索表情..." oninput="filterEmojis(this.value)">
+                </div>
+                <select id="emoji-group-select" onchange="filterEmojisByGroup(this.value)">
+                    <option value="all">全部系列</option>
+                    <option value="默认">默认</option>
+                </select>
+            </div>
+
+            <div id="default-emojis" class="emoji-grid">
+                <!-- 默认表情由 JS 生成 -->
+            </div>
+            <div id="custom-emojis" class="emoji-grid" style="display: none;">
+                <!-- 自定义表情由 JS 生成 -->
+            </div>
+            <input type="file" id="emoji-upload-input" accept="image/*,.txt,.json,.docx,.doc" multiple style="display: none;" onchange="handleEmojiUpload(this)">
+        </div>
                     
                     <!-- 加号面板 -->
                     <div id="plus-panel" class="bottom-panel">
@@ -196,10 +215,6 @@
                             <div class="plus-item" onclick="triggerFileUpload()">
                                 <div class="plus-icon-bg" style="background: #f5c359;"><i class="fas fa-folder"></i></div>
                                 <span>文件</span>
-                            </div>
-                            <div class="plus-item">
-                                <div class="plus-icon-bg" style="background: #ff5151;"><i class="fas fa-music"></i></div>
-                                <span>一起听</span>
                             </div>
                         </div>
                         <input type="file" id="chat-file-upload" accept=".doc,.docx,.txt,.json" style="display: none;" onchange="handleChatFileUpload(this)">
@@ -225,10 +240,7 @@
                         <div id="contacts-list-container">
                             <!-- 联系人列表将通过 JS 动态生成 -->
                         </div>
-                        <!-- 添加联系人悬浮按钮 -->
-                        <div class="fab-btn" onclick="showAddContactOptions()">
-                            <i class="fas fa-plus"></i>
-                        </div>
+                        <!-- 移除悬浮按钮，改用右上角加号 -->
                     </div>
                     <div id="chat-tab-moments" class="chat-tab-content">
                         <div class="moment-card">
@@ -307,202 +319,485 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- 子页面：API 设置 -->
-                <div id="subpage-api-settings" class="sub-page">
-                    <div class="app-header">
-                        <div class="back-btn" onclick="closeSubPage('api-settings')">
-                            <i class="fas fa-chevron-left"></i>
-                        </div>
-                        <span>API 设置</span>
-                        <div class="header-action" onclick="saveApiSettings()">保存</div>
+            </div>
+
+            <!-- 世界书 APP -->
+            <div id="app-worldbook" class="app-window">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeApp()">
+                        <i class="fas fa-chevron-left"></i>
                     </div>
-                    <div class="app-content scrollable">
-                        <div class="settings-group-title">服务商配置</div>
-                        <div class="settings-list">
-                            <div class="settings-item input-item">
-                                <span>API Key</span>
-                                <input type="password" id="api-key-input" placeholder="sk-..." style="width: 65%;">
-                            </div>
-                            <div class="settings-item input-item">
-                                <span>接口地址</span>
-                                <input type="text" id="api-url-input" placeholder="https://api.openai.com/v1/chat/completions" style="width: 65%; font-size: 12px;">
-                            </div>
-                            <div class="settings-item input-item">
-                                <span>模型名称</span>
-                                <input type="text" id="api-model-input" list="model-list" placeholder="gpt-3.5-turbo" value="gpt-3.5-turbo">
-                                <datalist id="model-list">
-                                    <option value="gpt-3.5-turbo">
-                                    <option value="gpt-4">
-                                    <option value="gpt-4o">
-                                    <option value="deepseek-chat">
-                                    <option value="deepseek-coder">
-                                </datalist>
-                            </div>
-                            <div class="settings-item" onclick="fetchModels()" style="justify-content: center; color: var(--primary-color);">
-                                <span><i class="fas fa-sync-alt"></i> 拉取模型列表</span>
-                            </div>
-                        </div>
-
-                        <div class="settings-group-title">高级配置</div>
-                        <div class="settings-list">
-                            <div class="settings-item input-item">
-                                <span>历史消息数</span>
-                                <input type="number" id="api-history-limit" placeholder="50" value="50" style="width: 20%;">
-                            </div>
-                            <div class="settings-item input-item">
-                                <span>最大回复长度</span>
-                                <input type="number" id="api-max-tokens" placeholder="默认" style="width: 20%;">
-                            </div>
-                        </div>
-                        
-                        <div class="settings-group-title">说明</div>
-                        <div style="padding: 0 15px; font-size: 13px; color: #8e8e93; line-height: 1.5;">
-                            支持 OpenAI 格式的接口。<br>
-                            如果是 DeepSeek，地址通常为: https://api.deepseek.com/chat/completions<br>
-                            模型名称: deepseek-chat
-                        </div>
-
-                        <div class="settings-list" style="margin-top: 20px;">
-                            <div class="settings-item" onclick="testApiConnection()">
-                                <span style="color: var(--primary-color);">测试连接</span>
-                                <i class="fas fa-plug"></i>
-                            </div>
-                        </div>
+                    <span>世界书</span>
+                    <div class="header-action" onclick="showAddWorldbookMenu()">
+                        <i class="fas fa-plus"></i>
                     </div>
                 </div>
-
-                <!-- 子页面：联系人详情 -->
-                <div id="subpage-contact-detail" class="sub-page">
-                    <div class="app-header">
-                        <div class="back-btn" onclick="closeSubPage('contact-detail')">
-                            <i class="fas fa-chevron-left"></i>
-                        </div>
-                        <span id="contact-detail-name">联系人</span>
+                <div class="app-content scrollable">
+                    <div id="worldbook-list-container" class="settings-list" style="margin-top: 0; border-top: none;">
+                        <!-- 世界书列表 -->
                     </div>
-                    <div class="app-content scrollable">
-                        <div class="center-content" style="padding: 30px 0;">
-                            <div class="avatar-large" id="contact-detail-avatar">A</div>
-                            <h2 id="contact-detail-title" style="margin-top: 10px;">Alice</h2>
-                            <p id="contact-detail-desc" style="color: #888; font-size: 14px; margin-top: 5px; padding: 0 20px; text-align: center;"></p>
-                        </div>
-                        
-                        <div class="settings-group-title">基本信息</div>
-                        <div class="settings-list">
-                            <div class="settings-item">
-                                <span>性别</span>
-                                <span id="contact-detail-gender" class="text-muted">-</span>
-                            </div>
-                            <div class="settings-item">
-                                <span>年龄</span>
-                                <span id="contact-detail-age" class="text-muted">-</span>
-                            </div>
-                            <div class="settings-item">
-                                <span>性格</span>
-                                <span id="contact-detail-personality" class="text-muted">-</span>
-                            </div>
-                        </div>
-
-                        <div class="settings-list" style="margin-top: 20px;">
-                            <div class="settings-item" onclick="enterChatFromDetail()">
-                                <span style="color: var(--primary-color);">发消息</span>
-                                <i class="fas fa-comment"></i>
-                            </div>
-                            <div class="settings-item" onclick="deleteContact()">
-                                <span style="color: #ff3b30;">删除联系人</span>
-                                <i class="fas fa-trash" style="color: #ff3b30;"></i>
-                            </div>
-                        </div>
+                    <div class="center-content" id="worldbook-empty-hint" style="display: none; padding-top: 50px;">
+                        <i class="fas fa-book-open fa-3x" style="color: #ccc; margin-bottom: 10px;"></i>
+                        <p style="color: #888; font-size: 14px;">暂无世界书</p>
                     </div>
                 </div>
+            </div>
 
-
-                <!-- 底部操作菜单 (Action Sheet) -->
-                <div id="action-sheet-overlay" class="overlay" onclick="hideActionSheet()"></div>
-                <div id="add-contact-sheet" class="action-sheet">
-                    <div class="action-item" onclick="openAddContactForm()">
-                        <i class="fas fa-user-plus"></i> 自己添加
+            <!-- 全局子页面：世界书详情/编辑 -->
+            <div id="subpage-worldbook-detail" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('worldbook-detail')">
+                        <i class="fas fa-chevron-left"></i>
                     </div>
-                    <div class="action-item" onclick="triggerImportCard()">
-                        <i class="fas fa-file-import"></i> 导入酒馆卡 (PNG/JSON)
-                    </div>
-                    <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+                    <span id="worldbook-detail-title">世界书详情</span>
+                    <div class="header-action" onclick="saveWorldbookMeta()">保存</div>
                 </div>
-                <input type="file" id="import-card-input" accept=".png,.json" style="display: none;" onchange="handleImportCard(this)">
-
-                <!-- 子页面：外观设置 -->
-                <div id="subpage-appearance-settings" class="sub-page">
-                    <div class="app-header">
-                        <div class="back-btn" onclick="closeSubPage('appearance-settings')">
-                            <i class="fas fa-chevron-left"></i>
-                        </div>
-                        <span>外观设置</span>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">基本信息</div>
+                    <div class="settings-list">
+                        <label class="settings-item input-item">
+                            <span>名称</span>
+                            <input type="text" id="worldbook-name" placeholder="世界书名称">
+                        </label>
                     </div>
-                    <div class="app-content scrollable">
-                        <div class="settings-group-title">壁纸</div>
-                        <div class="settings-list">
-                            <div class="settings-item" onclick="triggerWallpaperUpload()">
-                                <span>更换锁屏壁纸</span>
-                                <i class="fas fa-chevron-right"></i>
-                            </div>
+                    
+                    <div class="settings-group-title" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>条目列表</span>
+                        <div style="color: var(--primary-color); cursor: pointer;" onclick="openWorldbookEntry()">
+                            <i class="fas fa-plus"></i> 添加条目
                         </div>
                     </div>
-                    <input type="file" id="wallpaper-upload" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(this)">
-                </div>
-
-                <!-- 子页面：安全设置 -->
-                <div id="subpage-security-settings" class="sub-page">
-                    <div class="app-header">
-                        <div class="back-btn" onclick="closeSubPage('security-settings')">
-                            <i class="fas fa-chevron-left"></i>
-                        </div>
-                        <span>安全设置</span>
+                    <div id="worldbook-entries-list" class="settings-list">
+                        <!-- 条目列表 -->
                     </div>
-                    <div class="app-content scrollable">
-                        <div class="settings-group-title">锁屏安全</div>
-                        <div class="settings-list">
-                            <div class="settings-item" onclick="setupPasscode()">
-                                <span id="passcode-setting-text">设置锁屏密码</span>
-                                <i class="fas fa-chevron-right"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- 子页面：面具设置 -->
-                <div id="subpage-persona-settings" class="sub-page">
-                    <div class="app-header">
-                        <div class="back-btn" onclick="closeSubPage('persona-settings')">
-                            <i class="fas fa-chevron-left"></i>
-                        </div>
-                        <span>面具设置</span>
-                        <div class="header-action" onclick="savePersonaSettings()">保存</div>
-                    </div>
-                    <div class="app-content scrollable">
-                        <div class="form-group center-content" style="margin-top: 20px;">
-                            <div class="avatar-upload" onclick="triggerMyAvatarUpload()">
-                                <img id="my-persona-avatar-preview" src="" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-                                <i class="fas fa-camera" id="my-persona-avatar-icon"></i>
-                            </div>
-                            <div style="margin-top: 10px; color: var(--primary-color); font-size: 14px;">上传我的头像</div>
-                            <input type="file" id="my-avatar-upload-input" accept="image/*" style="display: none;" onchange="handleMyAvatarPreview(this)">
-                        </div>
-
-                        <div class="settings-group-title">我的基本信息</div>
-                        <div class="settings-list">
-                            <div class="settings-item input-item">
-                                <span>姓名</span>
-                                <input type="text" id="my-persona-name" placeholder="AI 如何称呼你">
-                            </div>
-                        </div>
-
-                        <div class="settings-group-title">我的详细设定 (AI 可见)</div>
-                        <div class="settings-list" style="display: block; padding: 0;">
-                            <textarea id="my-persona-desc" placeholder="输入你的详细设定，例如：性别、性格、与角色的关系等。这些信息将发送给 AI。" style="width: 100%; height: 150px; border: none; padding: 15px; font-size: 16px; resize: none; background: transparent; font-family: inherit;"></textarea>
+                    <div class="settings-list" style="margin-top: 20px;">
+                        <div class="settings-item" onclick="deleteWorldbook()">
+                            <span style="color: #ff3b30;">删除世界书</span>
+                            <i class="fas fa-trash" style="color: #ff3b30;"></i>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- 全局子页面：世界书条目编辑 -->
+            <div id="subpage-worldbook-entry" class="sub-page" style="z-index: 900;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('worldbook-entry')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>编辑条目</span>
+                    <div class="header-action" onclick="saveWorldbookEntry()">确定</div>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">触发关键字 (用逗号分隔)</div>
+                    <div class="settings-list">
+                        <div class="settings-item" style="padding: 0;">
+                            <input type="text" id="wb-entry-keys" placeholder="例如: 魔法, 学院, 历史" style="width: 100%; border: none; padding: 15px; font-size: 16px; outline: none;">
+                        </div>
+                    </div>
+
+                    <div class="settings-group-title">内容</div>
+                    <div class="settings-list" style="display: block; padding: 0;">
+                        <textarea id="wb-entry-content" placeholder="输入条目内容..." style="width: 100%; height: 200px; border: none; padding: 15px; font-size: 16px; resize: none; background: transparent; font-family: inherit; outline: none;"></textarea>
+                    </div>
+                    
+                    <div class="settings-group-title">选项</div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <span>启用此条目</span>
+                            <label class="switch">
+                                <input type="checkbox" id="wb-entry-enabled" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 世界书添加菜单 -->
+            <div id="add-worldbook-sheet" class="action-sheet">
+                <div class="action-item" onclick="createNewWorldbook()">
+                    <i class="fas fa-plus"></i> 新建世界书
+                </div>
+                <div class="action-item" onclick="triggerWorldbookImport()">
+                    <i class="fas fa-file-import"></i> 导入世界书 (JSON/TXT)
+                </div>
+                <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+            </div>
+            <input type="file" id="worldbook-import-input" accept=".json,.txt" style="display: none;" onchange="handleWorldbookImport(this)">
+
+            <!-- 全局子页面：API 设置 -->
+            <div id="subpage-api-settings" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('api-settings')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>API 设置</span>
+                    <div class="header-action" onclick="saveApiSettings()">保存</div>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">服务商配置</div>
+                    <div class="settings-list">
+                        <label class="settings-item input-item">
+                            <span>API Key</span>
+                            <input type="password" id="api-key-input" placeholder="sk-..." style="width: 65%;">
+                        </label>
+                        <label class="settings-item input-item">
+                            <span>接口地址</span>
+                            <input type="text" id="api-url-input" placeholder="https://api.openai.com/v1/chat/completions" style="width: 65%; font-size: 12px;">
+                        </label>
+                        <div class="settings-item input-item">
+                            <span>模型名称</span>
+                            <div style="display: flex; align-items: center; flex: 1; justify-content: flex-end; position: relative;">
+                                <!-- 组合输入框：Input + 隐形 Select -->
+                                <div style="position: relative; width: 140px; margin-right: 10px;">
+                                    <input type="text" id="api-model-input" placeholder="gpt-3.5-turbo" value="gpt-3.5-turbo" style="width: 100%; text-align: right; padding-right: 20px; box-sizing: border-box;" onfocus="autoFetchModels()">
+                                    <!-- 视觉上的下拉箭头 -->
+                                    <i class="fas fa-chevron-down" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); color: #ccc; font-size: 10px; pointer-events: none;"></i>
+                                    <!-- 隐形的 Select，覆盖在箭头区域 -->
+                                    <select id="api-model-select" style="position: absolute; right: 0; top: 0; height: 100%; width: 100%; opacity: 0; cursor: pointer;" onchange="document.getElementById('api-model-input').value = this.value">
+                                        <option value="" disabled selected>选择模型...</option>
+                                        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                                        <option value="gpt-4">gpt-4</option>
+                                        <option value="gpt-4o">gpt-4o</option>
+                                        <option value="deepseek-chat">deepseek-chat</option>
+                                        <option value="deepseek-coder">deepseek-coder</option>
+                                    </select>
+                                </div>
+                                
+                                <div onclick="fetchModels()" style="color: var(--primary-color); padding: 5px 10px; cursor: pointer; background: rgba(0,122,255,0.1); border-radius: 6px; font-size: 12px; white-space: nowrap; margin-left: 5px;">
+                                    <i class="fas fa-sync-alt"></i> 拉取
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="settings-group-title">说明</div>
+                    <div style="padding: 0 15px; font-size: 13px; color: #8e8e93; line-height: 1.5;">
+                        支持 OpenAI 格式的接口。<br>
+                        如果是 DeepSeek，地址通常为: https://api.deepseek.com/chat/completions<br>
+                        模型名称: deepseek-chat<br>
+                        点击模型输入框旁的刷新图标可拉取模型列表。
+                    </div>
+
+                    <div class="settings-list" style="margin-top: 20px;">
+                        <div class="settings-item" onclick="testApiConnection()">
+                            <span style="color: var(--primary-color);">测试连接</span>
+                            <i class="fas fa-plug"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全局子页面：联系人详情 -->
+            <div id="subpage-contact-detail" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('contact-detail')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span id="contact-detail-name">联系人</span>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="center-content" style="padding: 30px 0;">
+                        <div class="avatar-large" id="contact-detail-avatar">A</div>
+                        <h2 id="contact-detail-title" style="margin-top: 10px;">Alice</h2>
+                        <p id="contact-detail-desc" style="color: #888; font-size: 14px; margin-top: 5px; padding: 0 20px; text-align: center;"></p>
+                    </div>
+                    
+                    <div class="settings-group-title">基本信息</div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <span>性别</span>
+                            <span id="contact-detail-gender" class="text-muted">-</span>
+                        </div>
+                        <div class="settings-item">
+                            <span>年龄</span>
+                            <span id="contact-detail-age" class="text-muted">-</span>
+                        </div>
+                        <div class="settings-item">
+                            <span>性格</span>
+                            <span id="contact-detail-personality" class="text-muted">-</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-list" style="margin-top: 20px;">
+                        <div class="settings-item" onclick="enterChatFromDetail()">
+                            <span style="color: var(--primary-color);">发消息</span>
+                            <i class="fas fa-comment"></i>
+                        </div>
+                        <div class="settings-item" onclick="deleteContact()">
+                            <span style="color: #ff3b30;">删除联系人</span>
+                            <i class="fas fa-trash" style="color: #ff3b30;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全局子页面：外观设置 -->
+            <div id="subpage-appearance-settings" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('appearance-settings')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>外观设置</span>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">壁纸</div>
+                    <div class="settings-list">
+                        <div class="settings-item" onclick="triggerWallpaperUpload()">
+                            <span>更换锁屏壁纸</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="wallpaper-upload" accept="image/*" style="display: none;" onchange="handleWallpaperUpload(this)">
+            </div>
+
+            <!-- 全局子页面：安全设置 -->
+            <div id="subpage-security-settings" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('security-settings')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>安全设置</span>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">锁屏安全</div>
+                    <div class="settings-list">
+                        <div class="settings-item" onclick="setupPasscode()">
+                            <span id="passcode-setting-text">设置锁屏密码</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全局子页面：面具设置 -->
+            <div id="subpage-persona-settings" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('persona-settings')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>面具设置</span>
+                    <div class="header-action" onclick="savePersonaSettings()">保存</div>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="form-group center-content" style="margin-top: 20px;">
+                        <div class="avatar-upload" onclick="triggerMyAvatarUpload()">
+                            <img id="my-persona-avatar-preview" src="" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                            <i class="fas fa-camera" id="my-persona-avatar-icon"></i>
+                        </div>
+                        <div style="margin-top: 10px; color: var(--primary-color); font-size: 14px;">上传我的头像</div>
+                        <input type="file" id="my-avatar-upload-input" accept="image/*" style="display: none;" onchange="handleMyAvatarPreview(this)">
+                    </div>
+
+                    <div class="settings-group-title">我的基本信息</div>
+                    <div class="settings-list">
+                        <label class="settings-item input-item">
+                            <span>姓名</span>
+                            <input type="text" id="my-persona-name" placeholder="AI 如何称呼你">
+                        </label>
+                    </div>
+
+                    <div class="settings-group-title">我的详细设定 (AI 可见)</div>
+                    <div class="settings-list" style="display: block; padding: 0;">
+                        <textarea id="my-persona-desc" placeholder="输入你的详细设定，例如：性别、性格、与角色的关系等。这些信息将发送给 AI。" style="width: 100%; height: 150px; border: none; padding: 15px; font-size: 16px; resize: none; background: transparent; font-family: inherit;"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全局子页面：聊天详细设置 -->
+            <div id="subpage-chat-settings-detail" class="sub-page" style="z-index: 800;">
+                <div class="app-header">
+                    <div class="back-btn" onclick="closeSubPage('chat-settings-detail')">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <span>聊天设置</span>
+                </div>
+                <div class="app-content scrollable">
+                    <div class="settings-group-title">智能设置</div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <span>增强时间感知</span>
+                            <label class="switch">
+                                <input type="checkbox" id="chat-setting-time-awareness" onchange="saveChatSettingsDetail()">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+
+                        <div class="settings-item">
+                            <span>撤回对 AI 可见</span>
+                            <label class="switch">
+                                <input type="checkbox" id="chat-setting-recall-visible" onchange="saveChatSettingsDetail()">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="settings-item" style="flex-direction: column; align-items: flex-start;">
+                            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                                <span>主动发消息</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="chat-setting-auto-reply" onchange="saveChatSettingsDetail()">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div id="auto-reply-freq-container" style="width: 100%; margin-top: 10px; display: none; font-size: 12px; color: #666;">
+                                <span>频率(概率%): </span>
+                                <input type="number" id="chat-setting-reply-prob" value="5" min="1" max="100" style="width: 50px; border: 1px solid #ccc; border-radius: 4px; padding: 2px;" onchange="saveChatSettingsDetail()">
+                                <span style="margin-left: 10px;">间隔(分): </span>
+                                <input type="number" id="chat-setting-reply-interval" value="10" min="1" style="width: 50px; border: 1px solid #ccc; border-radius: 4px; padding: 2px;" onchange="saveChatSettingsDetail()">
+                            </div>
+                        </div>
+
+                        <div class="settings-item" style="flex-direction: column; align-items: flex-start;">
+                            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                                <span>主动发动态</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="chat-setting-auto-moment" onchange="saveChatSettingsDetail()">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div id="auto-moment-freq-container" style="width: 100%; margin-top: 10px; display: none; font-size: 12px; color: #666;">
+                                <span>概率(%): </span>
+                                <input type="number" id="chat-setting-moment-prob" value="1" min="1" max="100" style="width: 50px; border: 1px solid #ccc; border-radius: 4px; padding: 2px;" onchange="saveChatSettingsDetail()">
+                            </div>
+                        </div>
+
+
+                        <div class="settings-item" style="flex-direction: column; align-items: flex-start;">
+                            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                                <span>自动总结</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="chat-setting-auto-summary" onchange="saveChatSettingsDetail()">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div id="auto-summary-config" style="width: 100%; margin-top: 10px; display: none; font-size: 12px; color: #666;">
+                                <span>每 </span>
+                                <input type="number" id="chat-setting-summary-round" value="20" min="5" style="width: 50px; border: 1px solid #ccc; border-radius: 4px; padding: 2px;" onchange="saveChatSettingsDetail()">
+                                <span> 轮对话总结一次</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group-title">个性化</div>
+                    <div class="settings-list">
+                        <label class="settings-item input-item">
+                            <span>设置备注</span>
+                            <input type="text" id="chat-setting-remark" placeholder="未设置" onchange="saveChatSettingsDetail()">
+                        </label>
+                        <div class="settings-item" onclick="triggerChatBgUpload()">
+                            <span>聊天背景</span>
+                            <div style="display: flex; align-items: center;">
+                                <span id="chat-bg-status" style="font-size: 12px; color: #888; margin-right: 5px;">默认</span>
+                                <i class="fas fa-chevron-right"></i>
+                            </div>
+                        </div>
+                        <input type="file" id="chat-bg-upload" accept="image/*" style="display: none;" onchange="handleChatBgUpload(this)">
+                        
+                        <label class="settings-item input-item">
+                            <span>戳一戳后缀</span>
+                            <input type="text" id="chat-setting-poke-suffix" placeholder="拍了拍我的肩膀" onchange="saveChatSettingsDetail()">
+                        </label>
+
+                        <div class="settings-item" style="flex-direction: column; align-items: flex-start;">
+                            <div style="width: 100%; margin-bottom: 10px;">自定义气泡样式 (CSS)</div>
+                            <textarea id="chat-setting-bubble-css" placeholder="例如: .msg-bubble { border-radius: 20px; }" style="width: 100%; height: 80px; border: 1px solid #eee; padding: 5px; font-size: 12px; font-family: monospace;" onchange="saveChatSettingsDetail()"></textarea>
+                            <div style="display: flex; justify-content: space-between; width: 100%; margin-top: 5px;">
+                                <div style="font-size: 10px; color: #888; cursor: pointer;" onclick="showCssExample()">查看示例格式</div>
+                                <div style="font-size: 10px; color: var(--primary-color); cursor: pointer;" onclick="triggerCssUpload()">导入 CSS 文件</div>
+                            </div>
+                            <input type="file" id="chat-css-upload" accept=".css,.txt" style="display: none;" onchange="handleCssUpload(this)">
+                            <div id="css-example-box" style="display: none; width: 100%; background: #f9f9f9; padding: 10px; margin-top: 5px; font-size: 10px; color: #333; white-space: pre-wrap; border: 1px solid #eee;">
+/* 示例：粉色圆润气泡 */
+.msg-bubble {
+  background-color: #ffefff !important;
+  border-radius: 20px !important;
+  border: 1px solid #ffccff !important;
+  color: #d63384 !important;
+}
+/* 右侧气泡 */
+.message-row[style*="flex-end"] .msg-bubble {
+  background-color: #ffe0f0 !important;
+}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group-title">常规</div>
+                    <div class="settings-list">
+                        <div class="settings-item" onclick="viewContactProfile()">
+                            <span>查看资料 / 设定</span>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                        <div class="settings-item" onclick="clearCurrentChatHistory()">
+                            <span style="color: #ff3b30;">清空聊天记录</span>
+                            <i class="fas fa-trash-alt" style="color: #ff3b30;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作菜单 (Action Sheet) - 移至全局 -->
+            <div id="action-sheet-overlay" class="overlay" onclick="hideActionSheet()"></div>
+            <div id="add-contact-sheet" class="action-sheet">
+                <div class="action-item" onclick="openAddContactForm()">
+                    <i class="fas fa-user-plus"></i> 自己添加
+                </div>
+                <div class="action-item" onclick="triggerImportCard()">
+                    <i class="fas fa-file-import"></i> 导入酒馆卡 (PNG/JSON)
+                </div>
+                <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+            </div>
+            
+            <!-- 聊天设置菜单 -->
+            <div id="chat-settings-sheet" class="action-sheet">
+                <div class="action-item" onclick="viewContactProfile()">
+                    <i class="fas fa-user"></i> 查看资料 / 设定
+                </div>
+                <div class="action-item" onclick="clearCurrentChatHistory()">
+                    <i class="fas fa-trash-alt" style="color: #ff3b30;"></i> 清空聊天记录
+                </div>
+                <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+            </div>
+
+            <!-- 添加表情包菜单 -->
+            <div id="add-emoji-sheet" class="action-sheet">
+                <div class="action-item" onclick="manualAddSingleEmoji()">
+                    <i class="fas fa-pen"></i> 手动添加 (单个)
+                </div>
+                <div class="action-item" onclick="manualAddBatchEmoji()">
+                    <i class="fas fa-list"></i> 手动添加 (批量)
+                </div>
+                <div class="action-item" onclick="triggerEmojiUpload()">
+                    <i class="fas fa-file-upload"></i> 导入文件 (图片/文档)
+                </div>
+                <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+            </div>
+
+            <!-- 消息操作菜单 -->
+            <div id="msg-action-sheet" class="action-sheet">
+                <div class="action-item" id="msg-action-copy" onclick="copyMessage()">
+                    <i class="fas fa-copy"></i> 复制
+                </div>
+                <div class="action-item" id="msg-action-reply" onclick="replyMessage()">
+                    <i class="fas fa-quote-left"></i> 引用
+                </div>
+                <div class="action-item" id="msg-action-recall" onclick="recallCurrentMessage()">
+                    <i class="fas fa-undo"></i> 撤回
+                </div>
+                <div class="action-item" id="msg-action-multiselect" onclick="enterMultiSelectMode()">
+                    <i class="fas fa-check-circle"></i> 多选
+                </div>
+                <div class="action-item" id="msg-action-delete" onclick="deleteCurrentMessage()">
+                    <i class="fas fa-trash"></i> 删除
+                </div>
+                <div class="action-item cancel" onclick="hideActionSheet()">取消</div>
+            </div>
+
+            <input type="file" id="import-card-input" accept=".png,.json" style="display: none;" onchange="handleImportCard(this)">
 
             <!-- 移动到这里的添加联系人页面 (作为全局子页面) -->
             <div id="subpage-add-contact" class="sub-page" style="z-index: 700;">
@@ -523,24 +818,29 @@
                         <input type="file" id="avatar-upload-input" accept="image/*" style="display: none;" onchange="handleAvatarPreview(this)">
                     </div>
 
-                    <div class="settings-group-title">基本资料</div>
+                    <div class="settings-group-title" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>基本资料</span>
+                        <div style="color: var(--primary-color); font-size: 12px; cursor: pointer;" onclick="analyzeContactInfo()">
+                            <i class="fas fa-magic"></i> AI 智能识别
+                        </div>
+                    </div>
                     <div class="settings-list">
-                        <div class="settings-item input-item">
+                        <label class="settings-item input-item">
                             <span>姓名</span>
                             <input type="text" id="new-contact-name" placeholder="必填">
-                        </div>
-                        <div class="settings-item input-item">
+                        </label>
+                        <label class="settings-item input-item">
                             <span>性别</span>
                             <input type="text" id="new-contact-gender" placeholder="选填">
-                        </div>
-                        <div class="settings-item input-item">
+                        </label>
+                        <label class="settings-item input-item">
                             <span>年龄</span>
                             <input type="text" id="new-contact-age" placeholder="选填">
-                        </div>
-                        <div class="settings-item input-item">
+                        </label>
+                        <label class="settings-item input-item">
                             <span>性格</span>
                             <input type="text" id="new-contact-personality" placeholder="选填">
-                        </div>
+                        </label>
                     </div>
 
                     <div class="settings-group-title">角色设定 (支持 txt, docx)</div>
@@ -555,8 +855,22 @@
                         </div>
                     </div>
                     <input type="file" id="doc-upload-input" accept=".txt,.doc,.docx" style="display: none;" onchange="handleDocUpload(this)">
+
+                    <div class="settings-group-title">关联世界书</div>
+                    <div class="settings-list">
+                        <div class="settings-item input-item">
+                            <span>选择世界书</span>
+                            <div style="position: relative; width: 150px;">
+                                <select id="new-contact-worldbook" style="width: 100%; border: none; background: transparent; text-align: right; appearance: none; -webkit-appearance: none; padding-right: 20px; outline: none;">
+                                    <option value="">无</option>
+                                </select>
+                                <i class="fas fa-chevron-right" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); color: #ccc; font-size: 12px; pointer-events: none;"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
 
             <!-- 通用 APP 占位 -->
             <div id="app-placeholder" class="app-window">

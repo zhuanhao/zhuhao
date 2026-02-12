@@ -322,6 +322,7 @@ body {
 .drawing-bg { background: linear-gradient(135deg, #5856d6, #5e5ce6); }
 .game-bg { background: linear-gradient(135deg, #ffcc00, #ff9500); }
 .dating-bg { background: linear-gradient(135deg, #af52de, #bf5af2); }
+.music-bg { background: linear-gradient(135deg, #ff2d55, #ff5e3a); }
 .phone-bg { background: linear-gradient(135deg, #34c759, #248a3d); }
 .browser-bg { background: linear-gradient(135deg, #007aff, #0056b3); }
 .camera-bg { background: linear-gradient(135deg, #d1d1d6, #8e8e93); }
@@ -535,10 +536,15 @@ body {
     display: none;
     flex-direction: column;
     padding-bottom: env(safe-area-inset-bottom);
+    transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .bottom-panel.active {
     display: flex;
+}
+
+.bottom-panel.expanded {
+    height: 70%;
 }
 
 /* 表情面板 */
@@ -567,7 +573,7 @@ body {
 }
 
 .panel-btn {
-    margin-left: auto;
+    margin-left: 10px;
     padding: 5px 10px;
     background: #f2f2f7;
     border-radius: 4px;
@@ -575,13 +581,60 @@ body {
     cursor: pointer;
 }
 
+.panel-spacer {
+    flex: 1;
+}
+
+/* 表情工具栏样式 */
+#emoji-toolbar {
+    display: none; /* 默认隐藏，切换到收藏时显示 */
+    padding: 8px 10px;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    align-items: center;
+    gap: 10px;
+}
+
+#emoji-search {
+    width: 100%;
+    padding: 6px 8px 6px 26px;
+    border-radius: 6px;
+    border: 1px solid #eee;
+    font-size: 12px;
+    background: #f9f9f9;
+    outline: none;
+}
+
+#emoji-search:focus {
+    background: #fff;
+    border-color: var(--primary-color);
+}
+
+#emoji-group-select {
+    max-width: 100px;
+    font-size: 12px;
+    border: 1px solid #eee;
+    padding: 4px;
+    border-radius: 6px;
+    background: #f9f9f9;
+    outline: none;
+}
+
 .emoji-grid {
     flex: 1;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
     padding: 10px;
     gap: 5px;
+}
+
+#default-emojis {
+    grid-template-columns: repeat(8, 1fr);
+}
+
+#custom-emojis {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
 }
 
 .emoji-item {
@@ -590,17 +643,47 @@ body {
     cursor: pointer;
     padding: 5px;
     border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .emoji-item:active {
     background: #e5e5ea;
 }
 
-.custom-emoji {
+.emoji-item.custom {
+    background: #fff;
+    border: 1px solid #eee;
+}
+
+.emoji-img-wrapper {
     width: 100%;
     aspect-ratio: 1;
-    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.custom-emoji {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.emoji-name {
+    font-size: 10px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
+    line-height: 1.2;
 }
 
 /* 加号面板 */
@@ -969,6 +1052,54 @@ body {
     animation: typing 1.4s infinite ease-in-out both;
 }
 
+/* 迷你正在输入气泡 (用于连续发送时) */
+.mini-typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    background-color: #f0f0f0;
+    border-radius: 15px;
+    margin-left: 10px;
+    margin-bottom: 10px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: popIn 0.3s forwards;
+}
+
+.mini-typing-indicator .dot {
+    width: 4px;
+    height: 4px;
+    background-color: #999;
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: typing 1.4s infinite ease-in-out both;
+    border: none; /* 覆盖全局 .dot 样式 */
+}
+
+.mini-typing-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+.mini-typing-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+
+/* 戳一戳动画 */
+@keyframes shake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(-5px, 5px) rotate(-5deg); }
+    50% { transform: translate(5px, -5px) rotate(5deg); }
+    75% { transform: translate(-5px, 5px) rotate(-5deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.shake-animation {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* 戳一戳消息样式 */
+.poke-message {
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+    margin: 10px 0;
+}
+
 .typing-dots span:nth-child(1) {
     animation-delay: -0.32s;
 }
@@ -1018,4 +1149,61 @@ body {
 
 .dock {
     bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+/* --- 新增样式 --- */
+
+/* 多选框 */
+.msg-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    margin-right: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.msg-checkbox.checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.msg-checkbox i {
+    font-size: 12px;
+    display: none;
+}
+
+.msg-checkbox.checked i {
+    display: block;
+}
+
+/* 多选模式下的气泡 */
+.multi-select-mode .msg-bubble {
+    pointer-events: none; /* 禁止点击气泡触发菜单 */
+}
+
+/* 消息菜单 */
+.msg-context-menu div:hover {
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 4px;
+}
+
+/* 引用预览 */
+#quote-preview {
+    border-top: 1px solid #eee;
+}
+
+/* 限制消息图片大小 */
+.msg-bubble img {
+    max-width: 150px !important;
+    max-height: 150px !important;
+    width: auto;
+    height: auto;
+    object-fit: contain;
 }
