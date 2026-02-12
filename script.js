@@ -2959,12 +2959,104 @@ async function testApiConnection() {
     }
 }
 
-function fetchModels() {
-    alert('暂不支持自动拉取模型列表，请手动输入。');
+async function fetchModels(isAuto = false) {
+    const apiKey = document.getElementById('api-key-input').value.trim();
+    let apiUrl = document.getElementById('api-url-input').value.trim();
+    
+    if (!apiKey) {
+        if (!isAuto) alert('请先输入 API Key');
+        return;
+    }
+
+    // 智能处理 URL
+    let baseUrl = apiUrl;
+    if (baseUrl.includes('/chat/completions')) {
+        baseUrl = baseUrl.replace('/chat/completions', '');
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
+    
+    // 尝试构建 models endpoint
+    let modelsUrl = `${baseUrl}/models`;
+    
+    // 查找按钮 (根据 onclick 属性或结构)
+    // index.html: <div onclick="fetchModels()" ...>
+    const btn = document.querySelector('div[onclick="fetchModels()"]');
+    const originalContent = btn ? btn.innerHTML : '';
+    
+    if (!isAuto && btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.style.pointerEvents = 'none';
+    }
+
+    try {
+        let response = await fetch(modelsUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+
+        // 如果失败，尝试加 /v1 重试 (针对某些不规范的 API)
+        if (!response.ok && !baseUrl.endsWith('/v1')) {
+             const retryUrl = `${baseUrl}/v1/models`;
+             const retryResponse = await fetch(retryUrl, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+             });
+             if (retryResponse.ok) {
+                 response = retryResponse;
+             }
+        }
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        updateModelSelect(data);
+        if (!isAuto) alert('模型列表拉取成功');
+
+    } catch (e) {
+        console.error(e);
+        if (!isAuto) alert(`拉取失败: ${e.message}\n请检查 API 地址和 Key`);
+    } finally {
+        if (!isAuto && btn) {
+            btn.innerHTML = originalContent;
+            btn.style.pointerEvents = 'auto';
+        }
+    }
+}
+
+function updateModelSelect(data) {
+    const select = document.getElementById('api-model-select');
+    if (!select) return;
+    
+    const models = data.data || [];
+    if (models.length === 0) return;
+    
+    // 排序
+    models.sort((a, b) => a.id.localeCompare(b.id));
+    
+    // 保留当前选中的值（如果存在）
+    const currentVal = document.getElementById('api-model-input').value;
+    
+    select.innerHTML = '<option value="" disabled selected>选择模型...</option>';
+    models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.id;
+        select.appendChild(option);
+    });
+    
+    // 如果当前值在列表中，保持选中状态（虽然 select 是隐形的，但为了逻辑一致）
+    if (currentVal) {
+        select.value = currentVal;
+    }
 }
 
 function autoFetchModels() {
-    // 占位
+    // 静默拉取
+    fetchModels(true);
 }
 
 // --- 缺失的世界书函数 ---
